@@ -34,8 +34,11 @@ import time
 import urllib.request
 from pathlib import Path
 
+# encoding: this script and the servers it relays print check marks, which a Windows
+# console in a non-UTF-8 code page (cp950, cp1252) cannot encode -- without this the
+# relay threads and the "demo is up" line die with UnicodeEncodeError.
 if hasattr(sys.stdout, "reconfigure"):
-    sys.stdout.reconfigure(line_buffering=True)
+    sys.stdout.reconfigure(line_buffering=True, encoding="utf-8")
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 EXAMPLES_DIR = REPO_ROOT / "examples"
@@ -169,7 +172,7 @@ def spawn(command: list[str], cwd: Path, env: dict[str, str] | None = None) -> s
     )
 
 
-def terminate(process: subprocess.Popen, force: bool = False) -> None:
+def stop_process(process: subprocess.Popen, force: bool = False) -> None:
     if WINDOWS:
         subprocess.run(
             ["taskkill", "/PID", str(process.pid), "/T", "/F"],
@@ -357,14 +360,14 @@ def main() -> int:
         for _, process in processes:
             if process.poll() is None:
                 with contextlib.suppress(ProcessLookupError, PermissionError):
-                    terminate(process)
+                    stop_process(process)
         deadline = time.monotonic() + 10
         for _, process in processes:
             try:
                 process.wait(timeout=max(0.1, deadline - time.monotonic()))
             except subprocess.TimeoutExpired:
                 with contextlib.suppress(ProcessLookupError, PermissionError):
-                    terminate(process, force=True)
+                    stop_process(process, force=True)
 
 
 if __name__ == "__main__":

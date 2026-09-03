@@ -24,6 +24,11 @@ from typing import Any
 
 import yaml
 
+# encoding: the marks below cannot be encoded by a Windows console in a non-UTF-8 code
+# page (cp950, cp1252), which would end the run with UnicodeEncodeError on the first ok().
+if hasattr(sys.stdout, "reconfigure"):
+    sys.stdout.reconfigure(encoding="utf-8")
+
 REPO_ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(REPO_ROOT))
 sys.path.insert(0, str(REPO_ROOT / "examples"))
