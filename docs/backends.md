@@ -63,6 +63,16 @@ The executor adds what `checkout_handoff` returns to the card's payload after th
 call, so the URL never passes through the model. The example cards link only `https` URLs. When payment completes, queue an app event
 so the next turn knows.
 
+**Metadata for post-checkout attribution.** A host that runs downstream payments
+observability (auth-rate monitoring, reconciliation, fraud tuning) forwards two ids into
+the payment provider's metadata when it starts the payment for this cart: the session id
+and a stable `intent_id` derived from the handoff. A downstream monitor that reads charge
+metadata can then attribute a decline, a chargeback, or a reconciliation gap back to the
+specific agent-driven session. The runtime does not mint the `intent_id` itself: your
+`checkout_handoff` returns it beside the URL, and the executor threads it through
+`PaymentsObserver.on_checkout_handoff` (see Step 7). A host that does not run such a
+monitor ignores the field.
+
 ## Step 4: Map products with options
 
 A product or listing record is one of three shapes:
@@ -167,6 +177,35 @@ Never return a stand-in zero. Return `None` and say why in a short note.
 
 The retail merchant example returns two limitations: a 90-day order history and an email
 channel that reports no revenue.
+
+## Step 7: Emit payments observability signals (optional)
+
+Downstream monitors that watch auth rates, funnel conversion, Radar tuning, or
+payout reconciliation need three moments from the agent side to correlate their signals
+back to sessions: a cart write, the `checkout` handoff, and a merchant change that
+applied. `commerce_common.observers.PaymentsObserver` is the sink for those three
+events, and `NullPaymentsObserver` is the safe default when no monitor runs.
+
+A deployment provides an implementation and either:
+
+- calls it from the backend methods that own the writes (`update_cart`,
+  `checkout_handoff`, and the merchant apply path), passing the small event dataclasses
+  the module defines, or
+- forwards the executor's existing `cart_update` and `change_update` events into it from
+  a role's executor subclass.
+
+The events carry ids, hashes, amounts, and currency; never the cart contents, never the
+customer record, never the model's text. A monitor that needs the underlying cart looks
+it up in the host's own store, keyed by the session id it received.
+
+**Metadata contract.** For post-checkout attribution to work, `checkout_handoff` returns
+an `intent_id` beside the URL, and the host forwards `session_id` and `intent_id` into
+the payment provider's metadata when it starts the payment for this cart. The downstream
+monitor reads the metadata off the charge and joins it back to the session. The runtime
+never touches money; the metadata is the only link.
+
+**On Managed Agents,** the host's MCP server owns both the observer implementation and
+the metadata forwarding: the platform never sees the observer.
 
 ## Where to see it in the examples
 

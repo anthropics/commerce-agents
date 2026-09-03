@@ -6,7 +6,7 @@ paths each, four vertical examples, and a Claude Code plugin.
 
 ## Layout
 
-- `commerce-common/commerce_common/`: what both roles share; its `__init__` lists the modules.
+- `commerce-common/commerce_common/`: what both roles share; its `__init__` lists the modules. `observers.py` holds the optional payments observability sink.
 - `shopping-agent/core/shopping_agent/`: types, `StorefrontBackend`, config, prompt, `tools/`, gates, enrichment, executor.
 - `merchant-agent/core/merchant_agent/`: the merchant equivalents, plus `changes.py` and `analysis.py`.
 - `*/skills/`: five flows per role, one `SKILL.md` each.

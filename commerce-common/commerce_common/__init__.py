@@ -14,6 +14,7 @@
 ``delegation``        ``DelegateExtension``
 ``execution``         ``BaseToolExecutor``, the frame each role's executor extends
 ``streaming``         ``AgentEvent``, ``ToolOutcome``, ``to_sse``
+``observers``         ``PaymentsObserver``, ``NullPaymentsObserver``, event dataclasses
 ``turn``              helpers for the Messages API turn loop
 ``agent_sdk``         plumbing for the Agent SDK runtimes (needs ``claude-agent-sdk``)
 ``mcp_server``        plumbing for the reference MCP servers (needs ``mcp``)
