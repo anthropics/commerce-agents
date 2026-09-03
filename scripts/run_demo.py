@@ -34,12 +34,17 @@ import time
 import urllib.request
 from pathlib import Path
 
+# encoding: this script and the servers it relays print check marks, which a Windows
+# console in a non-UTF-8 code page (cp950, cp1252) cannot encode -- without this the
+# relay threads and the "demo is up" line die with UnicodeEncodeError.
 if hasattr(sys.stdout, "reconfigure"):
-    sys.stdout.reconfigure(line_buffering=True)
+    sys.stdout.reconfigure(line_buffering=True, encoding="utf-8")
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 EXAMPLES_DIR = REPO_ROOT / "examples"
-NEXT = EXAMPLES_DIR / "node_modules" / ".bin" / "next"
+WINDOWS = os.name == "nt"
+NEXT = EXAMPLES_DIR / "node_modules" / ".bin" / ("next.cmd" if WINDOWS else "next")
+NPM = "npm.cmd" if WINDOWS else "npm"
 
 VERTICALS: dict[str, dict[str, object]] = {
     "retail": {
@@ -151,7 +156,7 @@ def ensure_web_deps(install: bool) -> None:
     if not install:
         sys.exit(f"{EXAMPLES_DIR}/node_modules missing — run `npm ci` in {EXAMPLES_DIR} first.")
     print(f"{YELLOW}Installing the web workspace (first run)…{RESET}")
-    result = subprocess.run(["npm", "ci", "--no-audit", "--no-fund"], cwd=EXAMPLES_DIR)
+    result = subprocess.run([NPM, "ci", "--no-audit", "--no-fund"], cwd=EXAMPLES_DIR)
     if result.returncode:
         sys.exit(f"npm ci failed (see above); fix the registry, or run it in {EXAMPLES_DIR}.")
 
@@ -165,6 +170,17 @@ def spawn(command: list[str], cwd: Path, env: dict[str, str] | None = None) -> s
         stderr=subprocess.STDOUT,
         start_new_session=True,  # each child owns a process group, so shutdown takes its tree
     )
+
+
+def stop_process(process: subprocess.Popen, force: bool = False) -> None:
+    if WINDOWS:
+        subprocess.run(
+            ["taskkill", "/PID", str(process.pid), "/T", "/F"],
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+        )
+        return
+    os.killpg(os.getpgid(process.pid), signal.SIGKILL if force else signal.SIGTERM)
 
 
 def start_api(vertical: str, port: int, federated: bool) -> subprocess.Popen:
@@ -344,14 +360,14 @@ def main() -> int:
         for _, process in processes:
             if process.poll() is None:
                 with contextlib.suppress(ProcessLookupError, PermissionError):
-                    os.killpg(os.getpgid(process.pid), signal.SIGTERM)
+                    stop_process(process)
         deadline = time.monotonic() + 10
         for _, process in processes:
             try:
                 process.wait(timeout=max(0.1, deadline - time.monotonic()))
             except subprocess.TimeoutExpired:
                 with contextlib.suppress(ProcessLookupError, PermissionError):
-                    os.killpg(os.getpgid(process.pid), signal.SIGKILL)
+                    stop_process(process, force=True)
 
 
 if __name__ == "__main__":
