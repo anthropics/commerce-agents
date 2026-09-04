@@ -33,6 +33,26 @@ _INVISIBLE_RANGES = (
     (0xFEFF, 0xFEFF),  # byte-order mark / zero-width no-break space
     (0xE0000, 0xE007F),  # tag characters, which spell invisible ASCII
     (0xE0100, 0xE01EF),  # variation selectors supplement
+    # The remaining General Category Cf code points. Prefix and interlinear format
+    # controls render as nothing in most stacks, so they carry hidden text the same
+    # way the ranges above do. Checked complete against the Unicode 16.0 database,
+    # which is the newest any supported Python ships; the test below is the alarm
+    # for whatever comes next.
+    (0x0600, 0x0605),  # Arabic number/year/footnote/sign marks
+    (0x06DD, 0x06DD),  # Arabic end of ayah
+    (0x070F, 0x070F),  # Syriac abbreviation mark
+    (0x0890, 0x0891),  # Arabic pound/piastre marks above
+    (0x08E2, 0x08E2),  # Arabic disputed end of ayah
+    (0x110BD, 0x110BD),  # Kaithi number sign
+    (0x110CD, 0x110CD),  # Kaithi number sign above
+    (0x13430, 0x1343F),  # Egyptian hieroglyph format controls
+    (0x1BCA0, 0x1BCA3),  # Duployan shorthand format controls
+    (0x1D173, 0x1D17A),  # musical beam/slur/phrase controls
+    # Not Cf, but they render as nothing and survive NFKC, so they break a label or a
+    # role word just as well. U+3164 and U+FFA0 fold to U+1160 before this runs.
+    (0x034F, 0x034F),  # combining grapheme joiner
+    (0x115F, 0x1160),  # Hangul choseong/jungseong fillers
+    (0x2800, 0x2800),  # braille pattern blank
 )
 _INVISIBLE = re.compile("[" + "".join(f"{chr(lo)}-{chr(hi)}" for lo, hi in _INVISIBLE_RANGES) + "]")
 
