@@ -97,6 +97,20 @@ def pricing_context_payload(context: PricingContext) -> dict[str, Any]:
     return payload | ({"variants": rows} if rows else {})
 
 
+def alerts_payload(alerts: Sequence[InventoryAlert]) -> dict[str, Any]:
+    """The get_inventory_alerts result. The counts lead because they are what an answer
+    quotes: a bare list leaves the assistant to tally its own totals, and a total it
+    derived is a figure no tool returned."""
+    low = [alert for alert in alerts if alert.kind == "low_stock"]
+    return {
+        "alert_count": len(alerts),
+        "low_stock_count": len(low),
+        "out_of_stock_count": sum(1 for alert in low if alert.stock == 0),
+        "slow_mover_count": sum(1 for alert in alerts if alert.kind == "slow_mover"),
+        "alerts": [alert_record(alert) for alert in alerts],
+    }
+
+
 def alert_record(alert: InventoryAlert) -> dict[str, Any]:
     row = alert.model_dump(exclude_none=True)
     if not row.get("option_values"):

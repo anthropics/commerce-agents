@@ -78,10 +78,16 @@ class ListingFilters(BaseModel):
 
 
 class AlertCounts(BaseModel):
+    """``out_of_stock`` is the subset of ``low_stock`` that is at zero. It is here
+    because it is the figure an operator acts on first, and a model that counts it
+    itself from an alert list is quoting a number no tool returned. None, not zero,
+    when the backend does not separate the two."""
+
     low_stock: int = 0
     slow_movers: int = 0
     order_issues: int = 0
     pending_changes: int = 0
+    out_of_stock: int | None = None
 
 
 class BusinessSnapshot(BaseModel):
@@ -274,6 +280,9 @@ class PricingContext(BaseModel):
     ``variants`` carries one context per variant."""
 
     listing_id: str
+    # The listing's own title, so a price answer can name the item rather than its id.
+    # None when the backend does not carry it on this record.
+    title: str | None = None
     current_price: float
     currency: str = "USD"
     unit_cost: float | None = None

@@ -115,6 +115,16 @@ async def test_a_family_listing_is_priced_and_restocked_per_variant(executor, st
     assert '"current_price": 99.0' in pricing.result_text
 
 
+async def test_the_alert_read_carries_its_own_counts(executor):
+    result = await executor.execute("get_inventory_alerts", {})
+    # A total the assistant tallied from the rows is a figure no tool returned, so the
+    # counts ship with them: one low-stock alert here, and it is not at zero.
+    assert '"alert_count": 2' in result.result_text
+    assert '"low_stock_count": 1' in result.result_text
+    assert '"out_of_stock_count": 0' in result.result_text
+    assert '"slow_mover_count": 1' in result.result_text
+
+
 @pytest.mark.parametrize(
     ("tool", "arguments"),
     [
