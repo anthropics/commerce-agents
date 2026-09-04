@@ -46,7 +46,7 @@ from .gates import (
 )
 from .memory import MERCHANT_MEMORY_EXTRACTION_PROMPT
 from .serialization import (
-    alert_record,
+    alerts_payload,
     listing_details_payload,
     pricing_context_payload,
     search_result_text,
@@ -210,8 +210,9 @@ class MerchantToolExecutor(BaseToolExecutor):
 
     async def _get_inventory_alerts(self, _: dict[str, Any]) -> ToolOutcome:
         alerts = await self._backend.get_inventory_alerts(self._session)
-        payload = [alert_record(alert) for alert in alerts]
-        return self._fenced(payload or {"note": "No inventory alerts right now."})
+        if not alerts:
+            return self._fenced({"note": "No inventory alerts right now."})
+        return self._fenced(alerts_payload(alerts))
 
     async def _get_order_issues(self, _: dict[str, Any]) -> ToolOutcome:
         issues = await self._backend.get_order_issues(self._session)

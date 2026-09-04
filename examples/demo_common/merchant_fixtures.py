@@ -134,11 +134,14 @@ def alert_counts(
     alerts: Iterable[InventoryAlert], issues: list[Any], ledger: ChangeLedger
 ) -> AlertCounts:
     alerts = list(alerts)
+    low = [alert for alert in alerts if alert.kind == "low_stock"]
     return AlertCounts(
-        low_stock=sum(1 for alert in alerts if alert.kind == "low_stock"),
+        low_stock=len(low),
         slow_movers=sum(1 for alert in alerts if alert.kind == "slow_mover"),
         order_issues=len(issues),
         pending_changes=len(ledger.pending()),
+        # Counted here so the assistant quotes it rather than tallying an alert list.
+        out_of_stock=sum(1 for alert in low if alert.stock == 0),
     )
 
 
