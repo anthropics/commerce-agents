@@ -101,7 +101,7 @@ product  P-88  "Trail Tee"                 {"product_id": "P-88", "title": "Trai
 
 - A price or availability computed per request (a nightly rate for searched dates, a fare
   for a party size, a seat). The request's dimensions arrive as search filters and the
-  record returned is a quote for that context. The travel example prices stays this way. A
+  record returned is a quote for that context. The travel example prices this way. A
   booking engine whose room types are stocked and priced apart may still list them as
   variants of a property.
 - Siblings that differ in more than their option values (ticket tiers with their own
