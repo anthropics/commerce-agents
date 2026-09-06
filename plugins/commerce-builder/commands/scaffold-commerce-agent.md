@@ -177,7 +177,7 @@ the composer. Shopping agent: the `checkout` card hands off to question 9's answ
 or a per-seller handoff), a stub with a TODO until then. A project without a frontend starts from the `examples/retail/` web apps over
 `examples/web-shared/` (`npm ci` in `examples/`).
 
-**Fixture-backed backend.** With an export and no systems, write the backend as `MockRetail` or
+**Fixture-backed backend.** With an export and no systems, write the backend the way `MockRetail` or
 `MockRetailMerchant` is written, loading the export where they load
 `examples/demo_common/storefront_fixtures.py` or `merchant_fixtures.py`; index the flows the data
 supports and record "fixture-backed".
