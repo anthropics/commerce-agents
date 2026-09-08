@@ -33,3 +33,4 @@ export { Suggestions } from "./Suggestions";
 export { ActivityLine } from "./Transcript";
 export { type AgentTurn, useAgentTurn } from "./turn";
 export * from "./ui";
+export * from "./webmcp";

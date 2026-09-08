@@ -14,12 +14,13 @@ import {
   useMerchantChat,
   useResource,
   useSession,
+  useWebMcpTools,
 } from "web-shared";
 import AssistantPanel from "@/components/AssistantPanel";
 import BaseView from "@/components/views/BaseView";
 import HomeView from "@/components/views/HomeView";
 import PlansView from "@/components/views/PlansView";
-import { api, fetchOverview, UNREACHABLE } from "@/lib/api";
+import { api, fetchOverview, UNREACHABLE, webMcpTools } from "@/lib/api";
 import type { StagedChange } from "@/lib/types";
 
 type PortalView = "home" | "plans" | "base";
@@ -34,6 +35,7 @@ function StoreMark() {
 
 export default function PortalPage() {
   const session = useSession(api);
+  useWebMcpTools(Boolean(session.sessionId), webMcpTools);
   const [view, setView] = useState<PortalView>("home");
   const [assistantOpen, setAssistantOpen] = useState(false);
   const [activityOpen, setActivityOpen] = useState(false);

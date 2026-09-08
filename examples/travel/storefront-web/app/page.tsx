@@ -4,11 +4,11 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { type AgentEvent, OrdersView, plural, StoreShell, type StoreView, upcoming, useAgentTurn, useResource, useSession } from "web-shared";
+import { type AgentEvent, OrdersView, plural, StoreShell, type StoreView, upcoming, useAgentTurn, useResource, useSession, useWebMcpTools } from "web-shared";
 import Chat from "@/components/Chat";
 import TripPanel from "@/components/TripPanel";
 import HomeView from "@/components/views/HomeView";
-import { api, UNREACHABLE } from "@/lib/api";
+import { api, UNREACHABLE, webMcpTools } from "@/lib/api";
 import { formatPrice } from "@/lib/format";
 import { NOUNS, TripThumb } from "@/lib/orders";
 import type { CartPayload } from "@/lib/types";
@@ -30,6 +30,7 @@ function Wordmark() {
 
 export default function StorefrontPage() {
   const session = useSession(api);
+  useWebMcpTools(Boolean(session.sessionId), webMcpTools);
   const [view, setView] = useState<View>("assistant");
   const [cart, setCart] = useState<CartPayload | null>(null);
   // A staged checkout owns the panel's primary action until the trip changes again.

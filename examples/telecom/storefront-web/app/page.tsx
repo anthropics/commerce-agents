@@ -4,12 +4,12 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { type AgentEvent, type Profile, StoreShell, type StoreView, useAgentTurn, useCatalogIndex, useResource, useSession } from "web-shared";
+import { type AgentEvent, type Profile, StoreShell, type StoreView, useAgentTurn, useCatalogIndex, useResource, useSession, useWebMcpTools } from "web-shared";
 import Chat from "@/components/Chat";
 import OrderPanel from "@/components/OrderPanel";
 import AccountView from "@/components/views/AccountView";
 import HomeView from "@/components/views/HomeView";
-import { api, fetchAccount, fetchProducts, UNREACHABLE } from "@/lib/api";
+import { api, fetchAccount, fetchProducts, UNREACHABLE, webMcpTools } from "@/lib/api";
 import { formatPrice, splitCart } from "@/lib/format";
 import type { CartPayload } from "@/lib/types";
 
@@ -49,6 +49,7 @@ export default function StorefrontPage() {
 
 function Storefront({ profile, onSwitchProfile }: { profile: Profile; onSwitchProfile: (id: string) => void }) {
   const session = useSession(api, { profile: profile.id });
+  useWebMcpTools(Boolean(session.sessionId), webMcpTools);
   const [view, setView] = useState<View>("assistant");
   const [cart, setCart] = useState<CartPayload | null>(null);
   const [panelOpen, setPanelOpen] = useState(false);

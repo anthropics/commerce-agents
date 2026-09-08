@@ -1,0 +1,1 @@
+{"tools":[{"name":"search_catalog","risk":"read-only","expectedAnnotations":{"readOnly":true,"untrustedContent":true},"input":{"query":"coffee","limit":2},"expectedOutputSubset":{"total":1}},{"name":"get_orders","risk":"read-only","expectedAnnotations":{"readOnly":true,"untrustedContent":true},"input":{}}]}

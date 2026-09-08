@@ -1,7 +1,7 @@
 // Copyright 2026 Anthropic PBC
 // SPDX-License-Identifier: Apache-2.0
 
-import { AgentApi } from "web-shared";
+import { AgentApi, createStorefrontWebMcpTools } from "web-shared";
 import type { AccountContext, CartPayload, Product } from "./types";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8002";
@@ -28,3 +28,5 @@ export async function addToCart(productId: string, quantity = 1): Promise<CartPa
   const data = await api.post<{ cart: CartPayload }>("/cart/add", body);
   return data?.cart ?? null;
 }
+
+export const webMcpTools = createStorefrontWebMcpTools({ fetchProducts, fetchOrders: () => api.fetchOrders() });

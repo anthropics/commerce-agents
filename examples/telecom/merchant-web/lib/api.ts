@@ -1,7 +1,7 @@
 // Copyright 2026 Anthropic PBC
 // SPDX-License-Identifier: Apache-2.0
 
-import { AgentApi } from "web-shared";
+import { AgentApi, createMerchantWebMcpTools } from "web-shared";
 import type {
   BaseOverviewResponse,
   ListingDetailResponse,
@@ -32,3 +32,10 @@ export function fetchListings(query?: string): Promise<ListingsResponse | null> 
 export function fetchListingDetail(listingId: string): Promise<ListingDetailResponse | null> {
   return api.get<ListingDetailResponse>(`/listings/${encodeURIComponent(listingId)}`);
 }
+
+export const webMcpTools = createMerchantWebMcpTools({
+  fetchOverview,
+  fetchListings,
+  fetchListingDetail,
+  extraReads: [{ name: "get_subscriber_base", description: "Read the current subscriber-base overview without changing it.", read: fetchBase }],
+});

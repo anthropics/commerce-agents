@@ -1,7 +1,7 @@
 // Copyright 2026 Anthropic PBC
 // SPDX-License-Identifier: Apache-2.0
 
-import { AgentApi } from "web-shared";
+import { AgentApi, createStorefrontWebMcpTools } from "web-shared";
 import type { CartPayload, Hold, Product, ReturnOffer, WaitlistEntry, WalletTicket } from "./types";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8003";
@@ -71,3 +71,5 @@ export async function fetchTickets(): Promise<WalletTicket[] | null> {
   const data = await api.get<{ tickets?: WalletTicket[] }>("/tickets");
   return data ? (data.tickets ?? []) : null;
 }
+
+export const webMcpTools = createStorefrontWebMcpTools({ fetchProducts, fetchOrders: () => api.fetchOrders() });

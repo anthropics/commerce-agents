@@ -1,7 +1,7 @@
 // Copyright 2026 Anthropic PBC
 // SPDX-License-Identifier: Apache-2.0
 
-import { AgentApi } from "web-shared";
+import { AgentApi, createMerchantWebMcpTools } from "web-shared";
 import type {
   AlertsResponse,
   ListingDetailResponse,
@@ -37,3 +37,10 @@ export function fetchListingDetail(listingId: string): Promise<ListingDetailResp
 export function fetchAlerts(): Promise<AlertsResponse | null> {
   return api.get<AlertsResponse>("/alerts");
 }
+
+export const webMcpTools = createMerchantWebMcpTools({
+  fetchOverview,
+  fetchListings,
+  fetchListingDetail,
+  extraReads: [{ name: "get_occupancy", description: "Read the current property occupancy window without changing it.", read: fetchOccupancy }],
+});

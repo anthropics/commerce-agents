@@ -1,0 +1,1 @@
+{"tools":[{"name":"search_catalog","risk":"read-only","expectedAnnotations":{"readOnly":true,"untrustedContent":true}},{"name":"get_orders","risk":"read-only","expectedAnnotations":{"readOnly":true,"untrustedContent":true}}]}

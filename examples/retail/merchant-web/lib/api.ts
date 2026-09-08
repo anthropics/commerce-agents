@@ -1,7 +1,7 @@
 // Copyright 2026 Anthropic PBC
 // SPDX-License-Identifier: Apache-2.0
 
-import { AgentApi } from "web-shared";
+import { AgentApi, createMerchantWebMcpTools } from "web-shared";
 import type { AlertsResponse, ListingDetailResponse, ListingsResponse, OverviewResponse } from "./types";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
@@ -27,3 +27,5 @@ export function fetchListingDetail(listingId: string): Promise<ListingDetailResp
 export function fetchAlerts(): Promise<AlertsResponse | null> {
   return api.get<AlertsResponse>("/alerts");
 }
+
+export const webMcpTools = createMerchantWebMcpTools({ fetchOverview, fetchListings, fetchListingDetail });
