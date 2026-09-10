@@ -31,8 +31,10 @@ class BaseAgentConfig(BaseModel):
 
     # -- Models: the turn loop runs on `model`, which each role's config names, and
     # post-turn extraction on `memory_model`. The turn loop sends adaptive thinking at
-    # `thinking_effort`, or thinking disabled when it is None; either way `max_tokens`
-    # bounds the thinking and the reply together.
+    # `thinking_effort`; when it is None the request carries no thinking field and the
+    # model's own default applies (thinking on for Claude Sonnet 5, Opus 5 and Fable 5.x,
+    # off for Opus 4.7 and 4.8). Either way `max_tokens` bounds the thinking and the
+    # reply together.
     model: str
     memory_model: str = DEFAULT_MEMORY_MODEL
     thinking_effort: ThinkingEffort | None = None
@@ -89,7 +91,9 @@ class BaseAgentConfig(BaseModel):
         """The request fields that carry `thinking_effort`, for every model call the
         agent makes on `model`."""
         if self.thinking_effort is None:
-            return {"thinking": {"type": "disabled"}}
+            # Omitted rather than `disabled`: models that always think reject an explicit
+            # `disabled` with a 400, and omitting the field means "the model's default".
+            return {}
         return {
             "thinking": {"type": "adaptive"},
             "output_config": {"effort": self.thinking_effort},

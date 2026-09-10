@@ -205,7 +205,7 @@ async def test_thinking_follows_the_configured_effort(loop, run, session):
     (off,) = await run(
         loop.ungated_turn, [text_message("Here you go.")], session=session, thinking_effort=None
     )
-    assert off["thinking"] == {"type": "disabled"} and "output_config" not in off
+    assert "thinking" not in off and "output_config" not in off  # omitted, not `disabled`
 
 
 # -- closing on a presentation round --------------------------------------------------------
