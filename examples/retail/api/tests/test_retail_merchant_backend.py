@@ -351,3 +351,103 @@ async def test_a_price_below_the_reported_floor_is_refused(merchant, operator_se
             operator_session,
             [PriceUpdateItem(listing_id="AR-1902-KING", new_price=context.min_price - 1)],
         )
+
+
+async def test_unknown_metric_or_segment_has_no_points_and_a_note(merchant):
+    from merchant_agent import MerchantSessionContext
+
+    session = MerchantSessionContext(
+        session_id="m-lab", merchant_id=merchant.merchant_id, operator="demo-operator"
+    )
+    """The contract: a metric or segment the store cannot supply comes back empty with a
+    note, never another metric's series wearing the requested name."""
+    unknown = await merchant.query_metrics(session, "zqxjv_metric")
+    assert unknown.points == [] and unknown.note
+    segment = await merchant.query_metrics(session, "sales", segment="garden-furniture")
+    assert segment.points == [] and segment.note
+    known = await merchant.query_metrics(session, "sales", segment="kids-room")
+    assert known.points and not known.note
+
+
+async def test_restock_needs_a_quantity(merchant):
+    from merchant_agent import MerchantSessionContext
+
+    session = MerchantSessionContext(
+        session_id="m-lab", merchant_id=merchant.merchant_id, operator="demo-operator"
+    )
+    from merchant_agent import InventoryActionItem
+
+    for quantity in (None, 0):
+        with pytest.raises(ValueError):
+            await merchant.stage_inventory_action(
+                session,
+                [InventoryActionItem(listing_id="AR-1001", action="restock", quantity=quantity)],
+            )
+    assert await merchant.get_pending_changes(session) == []
+
+
+async def test_a_promotion_that_ends_before_it_starts_is_refused(merchant):
+    from merchant_agent import MerchantSessionContext
+
+    session = MerchantSessionContext(
+        session_id="m-lab", merchant_id=merchant.merchant_id, operator="demo-operator"
+    )
+    from merchant_agent import PromotionDraft
+
+    backwards = PromotionDraft(
+        name="Backwards",
+        listing_ids=["AR-1001"],
+        discount_pct=10,
+        starts="2026-09-10",
+        ends="2026-09-07",
+    )
+    with pytest.raises(ValueError):
+        await merchant.stage_promotion(session, backwards)
+    assert await merchant.get_pending_changes(session) == []
+
+
+async def test_another_merchants_session_sees_and_changes_nothing(merchant):
+    from merchant_agent import MerchantSessionContext
+
+    session = MerchantSessionContext(
+        session_id="m-lab", merchant_id=merchant.merchant_id, operator="demo-operator"
+    )
+    from merchant_agent import InventoryActionItem, MerchantSessionContext
+    from merchant_agent.changes import ChangeNotApplicable
+
+    change = await merchant.stage_inventory_action(
+        session, [InventoryActionItem(listing_id="AR-1001", action="restock", quantity=1)]
+    )
+    other = MerchantSessionContext(session_id="x", merchant_id="someone-else", operator="eve")
+    assert await merchant.get_pending_changes(other) == []
+    with pytest.raises(ChangeNotApplicable):
+        await merchant.apply_change(other, change.change_id)
+    with pytest.raises(ChangeNotApplicable):
+        await merchant.discard_change(other, change.change_id)
+    assert [c.change_id for c in await merchant.get_pending_changes(session)] == [change.change_id]
+
+
+async def test_a_promotion_may_not_take_a_listing_under_its_floor(merchant):
+    from merchant_agent import MerchantSessionContext, PromotionDraft
+    from merchant_agent.changes import GuardrailViolation
+
+    session = MerchantSessionContext(
+        session_id="m-floor", merchant_id=merchant.merchant_id, operator="demo-operator"
+    )
+    context = await merchant.get_pricing_context(session, "AR-1001")
+    assert context is not None and context.min_price is not None
+    # A discount inside the cap that still lands under the floor.
+    under = (1 - context.min_price / context.current_price) * 100 + 5
+    assert under <= merchant.config.max_promotion_discount_pct
+    with pytest.raises(GuardrailViolation):
+        await merchant.stage_promotion(
+            session,
+            PromotionDraft(
+                name="Too deep for the margin",
+                listing_ids=["AR-1001"],
+                discount_pct=round(under, 1),
+                starts="2026-09-10",
+                ends="2026-09-12",
+            ),
+        )
+    assert await merchant.get_pending_changes(session) == []
