@@ -1,7 +1,8 @@
 # Copyright 2026 Anthropic PBC
 # SPDX-License-Identifier: Apache-2.0
-
 from datetime import datetime
+
+import pytest
 
 from commerce_common.types import MemoryCategory, MemoryFact
 from demo_common.storefront_fixtures import load_json
@@ -156,3 +157,25 @@ async def test_an_order_line_for_a_variant_names_its_choice(backend, session):
     assert [(i.product_id, i.option_values, i.variant_of) for i in lines] == [
         ("AR-1902-QUEEN", {"size": "queen"}, "AR-1902")
     ]
+
+
+async def test_cart_refuses_unknown_ids_and_families_in_kind(backend, session):
+    """A backend called past the executor's gates (another host, a site button, a test)
+    still answers in the contract's terms: ``Unavailable`` naming ids, never a KeyError."""
+    from shopping_agent.backend import Unavailable
+
+    with pytest.raises(Unavailable):
+        await backend.add_to_cart(session, "nope-does-not-exist", 1)
+    with pytest.raises(Unavailable) as raised:
+        await backend.add_to_cart(session, "AR-1008", 1)  # a family with options
+    assert "AR-1008-12LB" in str(raised.value)
+    assert (await backend.get_cart(session)).items == []
+
+
+async def test_a_quantity_under_one_removes_the_line(backend, session):
+    await backend.add_to_cart(session, "AR-1001", 2)
+    cart = await backend.update_cart_item(session, "AR-1001", 0)
+    assert cart.items == []
+    await backend.add_to_cart(session, "AR-1001", 1)
+    cart = await backend.update_cart_item(session, "AR-1001", -3)
+    assert cart.items == []

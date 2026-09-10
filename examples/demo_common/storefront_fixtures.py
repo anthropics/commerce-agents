@@ -445,8 +445,11 @@ class SessionCarts:
         return self.cart(session_id)
 
     def set_quantity(self, session_id: str, product_id: str, quantity: int) -> Cart:
+        """A quantity under one removes the line; a cart never holds a line at zero."""
         lines = self.lines(session_id)
-        if product_id in lines:
+        if quantity < 1:
+            lines.pop(product_id, None)
+        elif product_id in lines:
             lines[product_id] = lines[product_id].model_copy(update={"quantity": quantity})
         return self.cart(session_id)
 

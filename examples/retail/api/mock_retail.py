@@ -298,10 +298,15 @@ class MockRetail(StorefrontBackend):
         self, session: ShoppingSessionContext, product_id: str, quantity: int
     ) -> Cart:
         product = self.product(product_id)
-        if product is None or product.has_options:
-            # The executor's gates hold both cases before they reach a backend; a real
-            # cart service refuses them on its own terms too.
-            raise KeyError(product_id)
+        # The executor's gates hold both cases before they reach a backend; a backend
+        # called past them (another host, a site button) answers in the contract's terms.
+        if product is None:
+            raise Unavailable(f"{product_id} is not in the catalog")
+        if product.has_options:
+            sellable = ", ".join(v.product_id for v in product.variants if v.in_stock)
+            raise Unavailable(
+                f"{product_id} has options; add one of its variants instead: {sellable}"
+            )
         if not product.in_stock:
             raise Unavailable(unavailable_detail(product, self.listing_of(product_id)))
         existing = self._carts.lines(session.session_id).get(product_id)
