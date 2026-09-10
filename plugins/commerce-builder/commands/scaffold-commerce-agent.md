@@ -122,7 +122,7 @@ Play the plan back in one message and get a yes before writing code:
 - v1 index: flows indexed; flows copied and unindexed, with the reason.
 - Gates: fencing, provenance, caps, grounding, the prompt-stability test; merchant agent:
   guardrails, host approval, and the approval surface.
-- Assumptions taken for skipped questions; the reference tag or commit, and the path of the clone
+- Assumptions taken for skipped questions; the reference tag or commit, and the path of the clone that
   the hosted path's `managed-agents/` directory and `scripts/deploy_managed_agent.sh` are read from.
 
 Name the skill behind each line where one applies. On yes, write the plan into the project's
