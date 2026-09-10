@@ -1,7 +1,8 @@
 # Copyright 2026 Anthropic PBC
 # SPDX-License-Identifier: Apache-2.0
-
 from datetime import date, timedelta
+
+import pytest
 
 from shopping_agent import SearchFilters
 from travel.api.mock_travel import MockTravel
@@ -262,3 +263,15 @@ async def test_fulfillment_is_booking_confirmation(backend, session):
     trip = await backend.get_fulfillment_options(session, ["AL-FLT-201", "AL-EXP-301"])
     assert any(o.method == "delivery" and "e-ticket" in o.eta for o in trip)
     assert any(o.method == "pickup" for o in trip)  # the experience's meeting point
+
+
+async def test_a_sold_out_stay_cannot_be_added(backend, session):
+    from shopping_agent.backend import Unavailable
+
+    sold_out = next(p for p in backend.products.values() if not p.in_stock)
+    with pytest.raises(Unavailable) as raised:
+        await backend.add_to_cart(session, sold_out.product_id, 1)
+    assert sold_out.product_id in str(raised.value)
+    with pytest.raises(Unavailable):
+        await backend.add_to_cart(session, "nope-does-not-exist", 1)
+    assert (await backend.get_cart(session)).items == []

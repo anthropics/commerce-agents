@@ -49,6 +49,7 @@ from shopping_agent import (
     StorefrontBackend,
     UserPreferences,
 )
+from shopping_agent.backend import Unavailable
 
 DATA_DIR = example_data_dir(__file__)
 
@@ -316,7 +317,11 @@ class MockTravel(StorefrontBackend):
     async def add_to_cart(
         self, session: ShoppingSessionContext, product_id: str, quantity: int
     ) -> Cart:
-        product = self.products[product_id]
+        product = self.products.get(product_id)
+        if product is None:
+            raise Unavailable(f"{product_id} is not in the catalog")
+        if not product.in_stock:
+            raise Unavailable(f"{product_id} is sold out for these dates")
         existing = self._carts.lines(session.session_id).get(product_id)
         plan = self._trip_plans.get(session.session_id)
         # A first, unit-quantity add of a nightly-rated stay books the planned nights;
