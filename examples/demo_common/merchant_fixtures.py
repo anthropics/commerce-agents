@@ -295,6 +295,8 @@ def stage_campaign(
     campaign is new, plus the audience and copy the draft carries. A draft with none of
     these is refused."""
     existing = campaigns.get(draft.campaign_id) if draft.campaign_id else None
+    if draft.campaign_id and existing is None:
+        raise ChangeNotApplicable(f"no campaign {draft.campaign_id} to change")
     target = draft.campaign_id or draft.name
     items = []
     if draft.budget is not None or existing is None:

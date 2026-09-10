@@ -229,3 +229,20 @@ def test_campaign_staging_and_promotion_windows():
             "listing_ids": ["C-1"],
         }
     ]
+
+
+def test_stage_campaign_refuses_an_unknown_campaign_id():
+    from demo_common.merchant_fixtures import stage_campaign
+    from merchant_agent import CampaignDraft, MerchantAgentConfig
+    from merchant_agent.changes import ChangeLedger, ChangeNotApplicable
+
+    ledger = ChangeLedger(MerchantAgentConfig())
+    with pytest.raises(ChangeNotApplicable):
+        stage_campaign(
+            ledger,
+            {},
+            CampaignDraft(campaign_id="camp-does-not-exist", name="Edit", budget=10),
+            actor="op",
+            currency="USD",
+        )
+    assert ledger.pending() == []
