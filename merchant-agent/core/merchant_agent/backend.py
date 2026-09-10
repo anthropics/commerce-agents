@@ -39,7 +39,9 @@ class MerchantBackend(ABC):
     state; only ``apply_change`` mutates anything: it performs the platform write, and
     only for a change that is currently staged. Every method calls the merchant's
     systems server-side with the credential the host holds for the session; the model sees
-    results, never a token. The backend enforces the business rules (the guardrails in
+    results, never a token. A backend that fronts more than one merchant scopes every read and
+    every change to ``session.merchant_id``: a session for another merchant lists nothing
+    and its writes raise :class:`~merchant_agent.changes.ChangeNotApplicable`. The backend enforces the business rules (the guardrails in
     changes.py plus its own) and stamps the session's operator on every change. A method for a system
     the deployment does not have raises :class:`~merchant_agent.changes.ChangeNotApplicable`
     naming what is unmanaged, which the executor relays; any other exception is reported
