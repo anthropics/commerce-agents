@@ -19,6 +19,7 @@ from commerce_common.presentation import (
     PresentSuggestionsPayload,
 )
 
+from .fencing import STOREFRONT_FENCE
 from .gates import PROVENANCE_GATE
 from .serialization import cart_payload
 from .tools.presentation import (
@@ -79,6 +80,13 @@ def comparison_price_delta(entries: list[dict[str, Any]]) -> dict[str, Any] | No
     }
 
 
+def _clean(text: str | None) -> str | None:
+    """Model-authored card text goes to the host's renderer through the same payload as
+    third-party records, so it gets the same treatment: no fence markers, no invisible
+    characters, no forged turn indicators."""
+    return None if text is None else STOREFRONT_FENCE.sanitize_text(text, 200)
+
+
 async def enrich_products(
     payload: PresentProductsPayload, context: EnrichmentContext
 ) -> dict[str, Any]:
@@ -89,7 +97,7 @@ async def enrich_products(
         if product is None:
             dropped.append(pick.product_id)
             continue
-        items.append({"product": _record(product), "reason": pick.reason})
+        items.append({"product": _record(product), "reason": _clean(pick.reason)})
     if not items:
         raise PresentationRefused(
             "None of those product_ids came from this session's catalog results. "
@@ -210,7 +218,7 @@ def partial_products(data: dict[str, Any], state: ShoppingSessionState) -> dict[
         if isinstance(pick, dict) and (record := _seen(state, pick.get("product_id"))):
             item: dict[str, Any] = {"product": record}
             if pick.get("reason"):
-                item["reason"] = pick["reason"]
+                item["reason"] = _clean(str(pick["reason"]))
             items.append(item)
     payload: dict[str, Any] = {"items": items}
     for key in ("title", "layout"):
