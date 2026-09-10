@@ -41,7 +41,7 @@ A skipped question takes the default in parentheses, listed as an assumption in 
 lane (the user says prototype or demo): ask 1, 2, and 10 plus where the data is (a CSV or JSON
 export is an answer); default the rest, with the console as the shell.
 
-1. Role: shopping agent, merchant agent, or both. Both means two sibling modules, each with its
+1. Role: shopping agent, merchant agent, or both. Both mean two sibling modules, each with its
    own backend, config, skills directory, and sessions; one process may mount both, as
    `examples/retail/api/main.py` does.
 2. Language: Python imports the packages; any other language ports them. (Default: the repo's.)
