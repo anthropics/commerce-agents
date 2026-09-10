@@ -392,3 +392,14 @@ def test_discard_records_actor_kind(config):
     assert agent_discard.discarded_by_kind is ActorKind.AGENT
     operator_discard = ledger.discard(second.change_id, actor="demo-operator")
     assert operator_discard.discarded_by_kind is ActorKind.OPERATOR
+
+
+def test_a_price_with_more_than_two_decimals_is_a_violation(config):
+    from merchant_agent import ChangeItem, ChangeKind
+    from merchant_agent.changes import check_guardrails
+
+    items = [ChangeItem(target="p-1", field="price", before=79.0, after=79.795)]
+    violations = check_guardrails(ChangeKind.PRICE_UPDATE, items, config)
+    assert violations and "two decimals" in violations[0]
+    fine = [ChangeItem(target="p-1", field="price", before=79.0, after=79.8)]
+    assert check_guardrails(ChangeKind.PRICE_UPDATE, fine, config) == []

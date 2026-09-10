@@ -70,6 +70,11 @@ def check_guardrails(
         if field in price_bearing or kind is ChangeKind.PROMOTION:
             before = _as_price(item.before)
             after = _as_price(item.after)
+            if after is not None and abs(after - round(after, 2)) > 1e-9:
+                violations.append(
+                    f"price for {item.target} has more than two decimals ({after}); "
+                    "prices are whole cents"
+                )
             if after is None:
                 violations.append(f"price for {item.target} must be a positive amount")
             elif before is None:
