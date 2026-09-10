@@ -17,8 +17,8 @@ runs.
 1. The current repo is the reference when `shopping-agent/core/shopping_agent/backend.py` exists;
    otherwise use a local clone, or clone `https://github.com/anthropics/commerce-agents.git` under
    `/tmp`. Note the tag or commit for Step 2b.
-2. Read these before writing code; on the prototype lane (Step 2), only the role's `backend.py`,
-   `types.py`, and `config.py`, `docs/backends.md`, `examples/retail/api/agent_config.py`, and
+2. Read these before writing code; on the prototype lane (Step 2), read only the role's `backend.py`,
+   `types.py`, and `config.py`, plus `docs/backends.md`, `examples/retail/api/agent_config.py`, and
    the role's mock.
    - `commerce-common/commerce_common/__init__.py`, then `fencing.py`, `execution.py`,
      `presentation.py`, `grounding.py`, `memory.py`, and `streaming.py`;
