@@ -85,12 +85,17 @@ class StorefrontHost:
         env_hint: str,
         cart_extras: Callable[[StorefrontRecord], dict[str, Any]] | None,
         on_startup: Sequence[Callable[[], Awaitable[None]]] = (),
+        sessions: SessionStore[ShoppingSessionState] | None = None,
     ) -> None:
         self.app = build_app(title, on_startup)
         self.backend = backend
         self.agent = agent
         self.memory_store = cast(MemoryStore, agent.memory.store)
-        self.sessions: SessionStore[ShoppingSessionState] = SessionStore(ShoppingSessionState)
+        # A deployment's own store (the six storage methods over its database) or the
+        # in-memory one for the examples.
+        self.sessions: SessionStore[ShoppingSessionState] = sessions or SessionStore(
+            ShoppingSessionState
+        )
         # The parameter annotation a vertical's own routes use: ``record: host.CurrentSession``.
         self.CurrentSession = session_dependency(self.sessions, "/api/session")
         self._env_hint = env_hint
@@ -170,17 +175,21 @@ def build_storefront_host(
     product_detail: Callable[[ProductDetails], dict[str, Any]] | None = None,
     cart_extras: Callable[[StorefrontRecord], dict[str, Any]] | None = None,
     before_turn: Callable[[], None] | None = None,
+    sessions: SessionStore[ShoppingSessionState] | None = None,
 ) -> StorefrontHost:
     """Seed memory, then build the app with the shared routes. ``product_of`` and
     ``product_detail`` let a vertical stamp live state onto catalog reads or enrich the
     detail payload; ``cart_extras`` adds keys to every cart payload; ``before_turn`` runs
-    ahead of each chat turn (a vertical delivering server-side events as app events)."""
+    ahead of each chat turn (a vertical delivering server-side events as app events);
+    ``sessions`` is a deployment's own ``SessionStore`` (its storage methods over a shared
+    database), the in-memory store when omitted."""
     host = StorefrontHost(
         title=title,
         backend=backend,
         agent=agent,
         env_hint=f"examples/{example_root.name}/.env",
         cart_extras=cart_extras,
+        sessions=sessions,
         # Seed the memory fixtures when the app starts, inside its event loop.
         on_startup=[lambda: memory_seeder.seed_at_boot(cast(MemoryStore, agent.memory.store))],
     )

@@ -20,7 +20,10 @@ from commerce_common.memory import InMemoryMemoryStore
 from commerce_common.types import MemoryFact
 from demo_common import (
     SESSION_HEADER,
+    MemorySeeder,
+    SessionStore,
     build_merchant_router,
+    build_storefront_host,
 )
 from demo_common.storefront_fixtures import load_catalog, load_json
 from demo_common.tests.fixtures import showcase_products, start_operator, start_shopper
@@ -30,11 +33,12 @@ from merchant_agent import (
     ChangeNotApplicable,
     ChangeStatus,
     InventoryActionItem,
+    MerchantSessionState,
     PriceUpdateItem,
     PromotionDraft,
 )
 from merchant_agent_runtime import MerchantAgent
-from shopping_agent import SearchFilters, ShoppingSessionContext
+from shopping_agent import SearchFilters, ShoppingSessionContext, ShoppingSessionState
 
 IDENTITY_FIELDS = {"user_id", "session_id", "merchant_id", "operator"}
 STOREFRONT_PUBLIC = {
@@ -422,6 +426,62 @@ def test_preview_card_buttons_report_a_hold_apart_from_an_apply(
     assert not record.state.approved_change_ids
     again = client.post(f"/api/merchant/changes/{staged.change_id}/apply", headers=headers)
     assert again.status_code == 400 and len(stored().pending_app_events) == 1
+
+
+def test_a_deployment_supplies_its_own_session_stores(
+    main, backend, merchant, merchant_identity, tmp_path
+):
+    """The six storage methods of ``SessionStore`` are what a deployment puts over its own
+    database; the builders take that store, so the session routes read and write through it."""
+
+    class Recording(SessionStore):
+        def __init__(self, state_type):
+            super().__init__(state_type)
+            self.written: list[str] = []
+
+        def write_state(self, session_id, document, version):
+            self.written.append(session_id)
+            super().write_state(session_id, document, version)
+
+    shoppers = Recording(ShoppingSessionState)
+    seed = tmp_path / "seed.json"
+    seed.write_text("{}")
+    host = build_storefront_host(
+        title="contract",
+        example_root=tmp_path,
+        backend=backend,
+        agent=main.host.agent,
+        memory_seeder=MemorySeeder(seed, marker=tmp_path / "seeded"),
+        sessions=shoppers,
+    )
+    assert host.sessions is shoppers
+    with TestClient(host.app, base_url="http://localhost", client=LOOPBACK) as client:
+        started = client.post("/api/session", json={"user_id": "demo-user"}).json()
+        assert shoppers.written == [started["session_id"]]
+        assert shoppers.require(started["session_id"]).user_id == "demo-user"
+        headers = {SESSION_HEADER: started["session_id"]}
+        assert client.get("/api/cart", headers=headers).status_code == 200
+
+    operators = Recording(MerchantSessionState)
+    agent = MerchantAgent(
+        backend=merchant, config=merchant.config, memory_store=InMemoryMemoryStore()
+    )
+    app = FastAPI()
+    app.include_router(
+        build_merchant_router(
+            storefront=backend,
+            backend=merchant,
+            agent=agent,
+            identity=merchant_identity,
+            example_dir="contract",
+            sessions=operators,
+        ),
+        prefix="/api/merchant",
+    )
+    client = TestClient(app, base_url="http://localhost", client=LOOPBACK)
+    headers = start_operator(client)
+    assert operators.written == [headers[SESSION_HEADER]]
+    assert operators.require(headers[SESSION_HEADER]).user_id == merchant_identity.merchant_id
 
 
 def test_orders_route_lists_the_callers_own_orders_newest_first(client):
