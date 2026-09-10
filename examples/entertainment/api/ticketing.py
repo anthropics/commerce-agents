@@ -14,6 +14,8 @@ from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 
+from shopping_agent.backend import Unavailable
+
 HOLD_TTL_S = 480
 OFFER_CLAIM_WINDOW_S = 600
 MAX_TICKETS_PER_EVENT = 8  # held tickets per event per session
@@ -26,8 +28,9 @@ class TicketingError(ValueError):
     """A rule violation; the message is safe to show the caller."""
 
 
-class SoldOutError(TicketingError):
-    """Not enough open inventory to hold the requested quantity."""
+class SoldOutError(TicketingError, Unavailable):
+    """Not enough open inventory to hold the requested quantity. ``Unavailable`` so the
+    executor relays it to the model with the ids instead of reporting an outage."""
 
 
 class HoldLimitError(TicketingError):

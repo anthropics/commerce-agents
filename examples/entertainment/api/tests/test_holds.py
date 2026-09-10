@@ -134,3 +134,12 @@ async def test_the_agent_hears_the_rule_when_a_hold_is_refused(main, backend, se
     assert result.is_error and "Nothing changed" in result.result_text
     assert str(MAX_TICKETS_PER_EVENT) in result.result_text
     assert "temporarily unavailable" not in result.result_text
+
+
+def test_sold_out_is_the_contracts_unavailable():
+    """The executor relays ``Unavailable`` to the model with ids; any other exception is
+    reported as an outage. A tier with too few seats left is the former."""
+    from entertainment.api.ticketing import SoldOutError
+    from shopping_agent.backend import Unavailable
+
+    assert issubclass(SoldOutError, Unavailable)
