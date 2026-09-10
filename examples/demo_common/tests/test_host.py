@@ -90,3 +90,11 @@ async def test_spawn_background_holds_the_task_until_it_finishes():
             break
         await asyncio.sleep(0)
     assert not _background_tasks
+
+
+def test_credential_problems_are_recognised_by_message():
+    from demo_common.host import credential_problem
+
+    assert credential_problem(TypeError("Could not resolve authentication method"))
+    assert credential_problem(RuntimeError("ANTHROPIC_API_KEY missing"))
+    assert not credential_problem(RuntimeError("connection reset"))

@@ -56,6 +56,13 @@ class DemoStorefront(Protocol):
     ) -> Cart: ...
 
 
+def credential_problem(error: BaseException) -> bool:
+    """A failure that is a missing or unusable API credential rather than a bug: the
+    SDK's own client raises a plain ``TypeError`` for it, so the message is the signal."""
+    described = str(error).lower()
+    return any(word in described for word in ("authentication", "credential", "api_key"))
+
+
 def load_demo_env(example_root: Path) -> None:
     """Load credentials before any agent is constructed. A variable already in the
     environment wins; the example's own ``.env`` fills in the rest, then the repo-root
@@ -184,9 +191,11 @@ def stream_turn(
                 )
             )
         except Exception as error:  # the client gets a safe event, the log gets the rest
-            logger.exception("chat turn failed")
-            described = str(error).lower()
-            if any(word in described for word in ("authentication", "credential", "api_key")):
+            if credential_problem(error):
+                logger.warning("chat turn failed: no API credentials configured (%s)", error)
+            else:
+                logger.exception("chat turn failed")
+            if credential_problem(error):
                 yield to_sse(
                     AgentEvent.error(
                         "No Anthropic API credentials are configured, so chat can't run. Set "
