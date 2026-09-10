@@ -66,6 +66,12 @@ class SearchFilters(BaseModel):
     sort: Literal["relevance", "price_asc", "price_desc", "rating"] = "relevance"
 
 
+class CartQuantity(BaseModel):
+    """The ``quantity`` argument of the cart tools: a whole number, or absent."""
+
+    quantity: int | None = None
+
+
 class CartItem(BaseModel):
     """``quantity`` counts whole units of the record as sold (a pack, a night, a seat);
     goods priced by measured weight are sold here as fixed packs."""

@@ -576,3 +576,26 @@ async def test_extension_without_enrich_passes_validated_payload_through(
     assert not result.is_error
     ui = next(e for e in result.events if e.type == "ui")
     assert ui.data == {"component": "banner", "payload": {"message": "hello"}}
+
+
+async def test_cart_quantity_that_is_not_a_whole_number_is_an_argument_error(executor):
+    """A quantity the schema would reject is the model's own mistake: it is reported as
+    invalid arguments naming the field, never as the tool being unavailable, and nothing
+    is written. ``None`` and a numeric string are coerced the way a schema would."""
+    await executor.execute("search_products", {"query": "tent"})
+    product_id = next(p.product_id for p in executor._state.seen_products.values() if not p.options)
+    for bad in ("abc", [1], {"n": 1}, 1.5):
+        result = await executor.execute("add_to_cart", {"product_id": product_id, "quantity": bad})
+        assert result.is_error, bad
+        assert "quantity" in result.result_text and "unavailable" not in result.result_text
+    for bad in ("abc", [1]):
+        result = await executor.execute(
+            "update_cart_item", {"product_id": product_id, "quantity": bad}
+        )
+        assert result.is_error and "quantity" in result.result_text
+    assert "quantity" not in (await executor.execute("get_cart", {})).result_text
+    ok = await executor.execute("add_to_cart", {"product_id": product_id, "quantity": "2"})
+    assert not ok.is_error and "x2" in ok.result_text
+    none = await executor.execute("add_to_cart", {"product_id": product_id, "quantity": None})
+    assert not none.is_error and "x1" in none.result_text
+

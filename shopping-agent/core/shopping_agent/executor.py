@@ -37,7 +37,7 @@ from .serialization import (
     product_details_payload,
     search_result_text,
 )
-from .types import SearchFilters, ShoppingSessionContext, ShoppingSessionState
+from .types import CartQuantity, SearchFilters, ShoppingSessionContext, ShoppingSessionState
 
 MAX_ORDERS = 20
 MAX_FULFILLMENT_IDS = 20
@@ -162,7 +162,7 @@ class ShoppingToolExecutor(BaseToolExecutor):
             session=self._session,
             state=self._state,
             product_id=str(tool_input.get("product_id", "")),
-            quantity=int(tool_input.get("quantity") or 1),
+            quantity=self._quantity(tool_input),
         )
 
     async def _update_cart_item(self, tool_input: dict[str, Any]) -> ToolOutcome:
@@ -172,8 +172,15 @@ class ShoppingToolExecutor(BaseToolExecutor):
             session=self._session,
             state=self._state,
             product_id=str(tool_input.get("product_id", "")),
-            quantity=int(tool_input.get("quantity") or 1),
+            quantity=self._quantity(tool_input),
         )
+
+    @staticmethod
+    def _quantity(tool_input: dict[str, Any]) -> int:
+        """The model's quantity as a whole number, or an invalid-arguments answer naming
+        the field: a string or a list here is the model's mistake, not an outage."""
+        parsed = parse_argument(CartQuantity, {"quantity": tool_input.get("quantity")})
+        return parsed.quantity if parsed.quantity is not None else 1
 
     async def _remove_from_cart(self, tool_input: dict[str, Any]) -> ToolOutcome:
         return await gated_remove_from_cart(
