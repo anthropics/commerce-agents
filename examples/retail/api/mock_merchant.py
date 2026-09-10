@@ -45,6 +45,7 @@ from merchant_agent import (
     ChangeItem,
     ChangeKind,
     ChangeLedger,
+    ChangeNotApplicable,
     DataLimitation,
     InventoryActionItem,
     InventoryAlert,
@@ -66,6 +67,20 @@ from merchant_agent import (
 from shopping_agent import ProductDetails, SearchFilters, ShoppingSessionContext
 
 from .mock_retail import DATA_DIR, DELIVERY_ATTRIBUTE, LOW_STOCK_ATTRIBUTE, MockRetail
+
+KNOWN_METRICS = frozenset(
+    {
+        "sales",
+        "revenue",
+        "orders",
+        "traffic",
+        "conversion",
+        "conversion_rate",
+        "average_order_value",
+        "aov",
+    }
+)
+KNOWN_SEGMENTS = frozenset({"kids-room", "kids_room"})
 
 
 class MockRetailMerchant(MerchantBackend):
@@ -327,6 +342,22 @@ class MockRetailMerchant(MerchantBackend):
         current, _, label = metric_window(self._daily, period or "last_30_days")
         cleaned = metric.strip().lower().replace(" ", "_")
         segment_cleaned = (segment or "").strip().lower().replace(" ", "-") or None
+        # A metric or a segment the fixtures do not carry comes back empty with a note,
+        # never as another series wearing the requested name.
+        if cleaned not in KNOWN_METRICS:
+            return MetricSeries(
+                metric=cleaned,
+                period=label,
+                segment=segment_cleaned,
+                note=f"no metric '{cleaned}'; available: {', '.join(sorted(KNOWN_METRICS))}",
+            )
+        if segment_cleaned and segment_cleaned not in KNOWN_SEGMENTS:
+            return MetricSeries(
+                metric=cleaned,
+                period=label,
+                segment=segment_cleaned,
+                note=f"no segment '{segment_cleaned}'; only kids-room is broken out",
+            )
 
         def value_for(rows: list[dict[str, Any]]) -> float:
             # Ratio metrics are recomputed from the bucket's totals.
@@ -638,7 +669,9 @@ class MockRetailMerchant(MerchantBackend):
             if item.action == "restock":
                 if product.has_options:
                     raise ValueError(f"{resolved} is restocked per variant")
-                after: Any = current + (item.quantity or 0)
+                if not item.quantity:
+                    raise ValueError(f"a restock of {resolved} needs a quantity above zero")
+                after: Any = current + item.quantity
                 field = "stock"
             else:
                 after = "paused" if item.action == "pause" else "active"
@@ -659,6 +692,10 @@ class MockRetailMerchant(MerchantBackend):
     async def stage_promotion(
         self, session: MerchantSessionContext, promotion: PromotionDraft
     ) -> StagedChange:
+        if promotion.ends < promotion.starts:  # ISO dates compare as text
+            raise ValueError(
+                f"the promotion ends ({promotion.ends}) before it starts ({promotion.starts})"
+            )
         items = []
         margin_impact = 0.0
         margins: list[tuple[float, float]] = []
@@ -718,11 +755,22 @@ class MockRetailMerchant(MerchantBackend):
             self.ledger, self._campaigns, campaign, actor=session.operator, currency=self._currency
         )
 
+    def _own(self, session: MerchantSessionContext) -> None:
+        """This backend fronts one merchant; a session for another changes nothing. The
+        host binds the merchant at session start, so this is defence in depth for a
+        backend called directly."""
+        if session.merchant_id != self.merchant_id:
+            raise ChangeNotApplicable(
+                f"session is for merchant {session.merchant_id}; this store is {self.merchant_id}"
+            )
+
     async def get_pending_changes(self, session: MerchantSessionContext) -> list[StagedChange]:
-        del session
+        if session.merchant_id != self.merchant_id:
+            return []
         return self.ledger.pending()
 
     async def apply_change(self, session: MerchantSessionContext, change_id: str) -> StagedChange:
+        self._own(session)
         applied = self.ledger.apply(change_id, actor=session.operator)
         self._apply_to_live_state(applied)
         return applied
@@ -733,6 +781,7 @@ class MockRetailMerchant(MerchantBackend):
         change_id: str,
         actor_kind: ActorKind = ActorKind.OPERATOR,
     ) -> StagedChange:
+        self._own(session)
         return self.ledger.discard(change_id, actor=session.operator, actor_kind=actor_kind)
 
     def _apply_to_live_state(self, change: StagedChange) -> None:
