@@ -8,7 +8,7 @@
     "start": "next start -p 3002"
   },
   "dependencies": {
-    "next": "^16.3.0",
+    "next": "^16.3.4",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
     "web-shared": "file:../../web-shared"
