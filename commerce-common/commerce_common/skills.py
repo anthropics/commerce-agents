@@ -8,6 +8,7 @@ and ``load_skill`` returns a body on demand.
 
 from __future__ import annotations
 
+import re
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -26,13 +27,21 @@ class SkillLoadError(ValueError):
 
 
 def parse_skill_md(text: str, path: Path | None = None) -> Skill:
-    if not text.startswith("---"):
+    fence = re.compile(r"^---[ \t]*\r?$", re.MULTILINE)
+    opening = fence.match(text)
+    if opening is None:
         raise SkillLoadError(f"{path or 'SKILL.md'}: missing YAML frontmatter")
+    closing = fence.search(text, opening.end())
+    if closing is None:
+        raise SkillLoadError(f"{path or 'SKILL.md'}: malformed frontmatter fences")
+    frontmatter = text[opening.end() : closing.start()]
+    body = text[closing.end() :]
     try:
-        _, frontmatter, body = text.split("---", 2)
-    except ValueError as exc:
-        raise SkillLoadError(f"{path or 'SKILL.md'}: malformed frontmatter fences") from exc
-    meta = yaml.safe_load(frontmatter) or {}
+        meta = yaml.safe_load(frontmatter)
+    except yaml.YAMLError as exc:
+        raise SkillLoadError(f"{path or 'SKILL.md'}: invalid YAML frontmatter") from exc
+    if not isinstance(meta, dict):
+        raise SkillLoadError(f"{path or 'SKILL.md'}: frontmatter must be a mapping")
     name = meta.get("name")
     description = meta.get("description")
     if not name or not description:

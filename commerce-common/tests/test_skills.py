@@ -46,3 +46,28 @@ def test_registry_index_is_sorted_and_stable(skills):
     assert index_a == index_b
     assert index_a.index("planning-goals") < index_a.index("search-discovery")
     assert skills.get_instructions("nope") is None
+
+
+@pytest.mark.parametrize("newline", ["\n", "\r\n"])
+def test_frontmatter_delimiters_in_yaml_and_body(newline):
+    text = newline.join(
+        ["---", "name: example", 'description: "before --- after"', "---", "Body", "---", "Tail"]
+    )
+    skill = parse_skill_md(text)
+    assert skill.description == "before --- after"
+    assert skill.body == newline.join(["Body", "---", "Tail"])
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        "---oops\nname: example\ndescription: Example\n---\nBody",
+        "---\nname: example\ndescription: Example --- Body",
+        "---\n- a\n- b\n---\nBody",
+        "---\n42\n---\nBody",
+        "---\nname: [broken\n---\nBody",
+    ],
+)
+def test_invalid_frontmatter_raises_skill_load_error(text):
+    with pytest.raises(SkillLoadError):
+        parse_skill_md(text)
