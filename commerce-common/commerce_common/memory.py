@@ -276,12 +276,12 @@ class InMemoryMemoryStore:
         self._purges: dict[str, int] = {}
 
     async def get_facts(self, subject_id: str) -> list[MemoryFact]:
-        return list(self._data.get(subject_id, {}).values())
+        return [fact.model_copy(deep=True) for fact in self._data.get(subject_id, {}).values()]
 
     async def upsert_facts(self, subject_id: str, facts: list[MemoryFact]) -> None:
         bucket = self._data.setdefault(subject_id, {})
         for fact in facts:
-            bucket[fact.key] = fact
+            bucket[fact.key] = fact.model_copy(deep=True)
 
     async def search_facts(self, subject_id: str, query: str) -> list[MemoryFact]:
         return match_facts(await self.get_facts(subject_id), query)

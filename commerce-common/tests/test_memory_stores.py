@@ -115,3 +115,26 @@ def test_with_retention_wraps_once_with_the_configured_window():
     assert rewrapped.inner is inner and rewrapped.retention == timedelta(days=7)
     with pytest.raises(ValueError):
         RetentionMemoryStore(inner, timedelta(0))
+
+
+async def test_upsert_keeps_a_snapshot_of_input_facts(store):
+    original = fact("shoe_size", "wears EU 42")
+    await store.upsert_facts("u-1", [original])
+    original.key = "changed_key"
+    original.value = "changed value"
+    stored = await store.get_facts("u-1")
+    assert [(f.key, f.value) for f in stored] == [("shoe_size", "wears EU 42")]
+    assert await store.delete_fact("u-1", "shoe_size")
+    assert await store.get_facts("u-1") == []
+
+
+@pytest.mark.parametrize("search", [False, True])
+async def test_recalled_facts_can_be_modified_without_rewriting_storage(store, search):
+    await store.upsert_facts("u-1", [fact("shoe_size", "wears EU 42")])
+    recalled = await store.search_facts("u-1", "wears") if search else await store.get_facts("u-1")
+    recalled[0].key = "changed_key"
+    recalled[0].value = "changed value"
+    recalled.clear()
+    assert [(f.key, f.value) for f in await store.get_facts("u-1")] == [
+        ("shoe_size", "wears EU 42")
+    ]
