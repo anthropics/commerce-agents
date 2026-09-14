@@ -50,9 +50,9 @@ def find_token(text: str, patterns: Sequence[str]) -> str | None:
     """The longest match of any pattern in the text (case-insensitive), or None."""
     token: str | None = None
     for pattern in patterns if text else ():
-        match = re.search(pattern, text, re.IGNORECASE)
-        if match is not None and (token is None or len(match.group(0)) > len(token)):
-            token = match.group(0)
+        for match in re.finditer(pattern, text, re.IGNORECASE):
+            if token is None or len(match.group(0)) > len(token):
+                token = match.group(0)
     return token
 
 

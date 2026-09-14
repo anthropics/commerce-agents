@@ -83,3 +83,16 @@ def test_first_forced_tool_follows_rule_order_and_skips_rules_that_do_not_fire()
     assert first_forced_tool(rules, None, "terms for SKU-1?", None) == "read_terms"
     assert first_forced_tool(rules, None, "SKU-1?", None) == "read_id"
     assert first_forced_tool(rules, None, "hello", None) is None
+
+
+@pytest.mark.parametrize(
+    ("text", "expected"),
+    [
+        ("compare SKU-AA-101 with SKU-LONG-102-ZZ", "SKU-LONG-102-ZZ"),
+        ("compare SKU-LONG-102-ZZ with SKU-AA-101", "SKU-LONG-102-ZZ"),
+        ("compare sku-aa-101 with sku-long-102-zz", "sku-long-102-zz"),
+        ("compare SKU-AA-101 with SKU-BB-102", "SKU-AA-101"),
+    ],
+)
+def test_find_token_checks_later_occurrences_of_the_same_pattern(text, expected):
+    assert find_token(text, PATTERNS) == expected
