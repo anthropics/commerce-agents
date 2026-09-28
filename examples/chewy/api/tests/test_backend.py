@@ -205,12 +205,20 @@ async def test_cart_rejects_update_for_product_not_in_cart() -> None:
         await backend.update_cart_item(session(), "unknown", 2)
 
 
-def test_agent_exposes_cart_but_not_checkout_or_account_capabilities() -> None:
+def test_agent_exposes_cart_and_summary_but_not_account_capabilities() -> None:
     absent = build_shopping_config().absent_tools()
 
-    assert not {"get_cart", "add_to_cart", "update_cart_item", "remove_from_cart"} & absent
+    assert (
+        not {
+            "get_cart",
+            "add_to_cart",
+            "update_cart_item",
+            "remove_from_cart",
+            "checkout",
+        }
+        & absent
+    )
     assert {
-        "checkout",
         "get_orders",
         "get_order_status",
         "search_policies",

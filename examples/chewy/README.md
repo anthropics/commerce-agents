@@ -3,7 +3,9 @@
 This is a narrow slice of Anthropic's `ShoppingAgent` connected to Chewy's cloned
 Search Agent MCP server and UCP orchestrator. It includes product search, product
 details, and a guest cart. Checkout completion, payment, orders, policies,
-fulfillment, and memory remain off.
+fulfillment, and memory remain off. The agent can stage the repository's checkout
+summary card, but its continuation control stays disabled because this POC has no
+retailer checkout handoff.
 
 ## Run it
 
@@ -42,6 +44,9 @@ Open the storefront URL printed by `run_demo.py` and try:
 Success means the assistant calls the real Chewy catalog, renders grounded product
 cards, can fetch details, and can add, change, and remove products in a guest cart. The
 cart is a UCP checkout session, but this POC never completes it or sends payment data.
+Asking to check out renders a review-only summary from that cart. Chewy shipping,
+delivery, tax, and return-policy claims are not fabricated; the card marks unknown
+amounts as calculated later and offers no payment or completion action.
 Because the deployed QAT UCP update operation currently recalculates without changing
 line items, each successful mutation replaces the guest checkout with the complete
 desired cart and cancels the prior session. Products rejected by QAT checkout are shown

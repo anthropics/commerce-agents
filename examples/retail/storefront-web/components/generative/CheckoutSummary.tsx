@@ -10,6 +10,8 @@ import type { CheckoutPayload, Product } from "@/lib/types";
 import { STORE_POLICY } from "@/lib/storePolicy";
 import { DeliveryPromise, ProductImage } from "../ProductTile";
 
+const CHECKOUT_POLICY_ENABLED = process.env.NEXT_PUBLIC_CHECKOUT_POLICY_ENABLED !== "false";
+
 export default function CheckoutSummary({ payload }: { payload: CheckoutPayload }) {
   const cart = payload.cart;
   const handoffs = safeHandoffs(payload.handoffs);
@@ -19,11 +21,13 @@ export default function CheckoutSummary({ payload }: { payload: CheckoutPayload 
   // dates and thumbnails.
   const catalog = useCatalogIndex(fetchProducts);
   // The policy says "over" the threshold, so a cart at exactly the threshold is not free.
-  const freeShipping = cart.subtotal > STORE_POLICY.freeShippingThreshold;
+  const freeShipping = CHECKOUT_POLICY_ENABLED && cart.subtotal > STORE_POLICY.freeShippingThreshold;
   return (
     <section data-checkout-card className="rounded-2xl border-2 border-(--accent) bg-(--card) p-4 shadow-(--shadow-sm)">
       <div className="flex items-center justify-between gap-2">
-        <h3 className="text-[15px] font-semibold text-(--ink)">Ready to check out</h3>
+        <h3 className="text-[15px] font-semibold text-(--ink)">
+          {CHECKOUT_POLICY_ENABLED ? "Ready to check out" : "Checkout summary"}
+        </h3>
         <div className="flex items-center gap-1.5">
           <span className="whitespace-nowrap rounded-full border border-(--line) bg-(--well)/60 px-2.5 py-0.5 text-[11px] font-semibold text-(--ink-soft)">
             Not charged
@@ -69,15 +73,19 @@ export default function CheckoutSummary({ payload }: { payload: CheckoutPayload 
         <div className="flex justify-between gap-2 text-(--ink)">
           <span>
             Shipping{" "}
-            <span className="text-[13px] text-(--ink-soft)">
-              standard · {STORE_POLICY.standardShippingEta}
-            </span>
+            {CHECKOUT_POLICY_ENABLED ? (
+              <span className="text-[13px] text-(--ink-soft)">
+                standard · {STORE_POLICY.standardShippingEta}
+              </span>
+            ) : null}
           </span>
           <span className={freeShipping ? "font-medium text-(--ok)" : "text-(--ink)"}>
-            {freeShipping ? "Free" : "Calculated at checkout"}
+            {freeShipping ? "Free" : "Calculated in checkout"}
           </span>
         </div>
-        {!freeShipping && STORE_POLICY.freeShippingThreshold - cart.subtotal > 0 ? (
+        {CHECKOUT_POLICY_ENABLED &&
+        !freeShipping &&
+        STORE_POLICY.freeShippingThreshold - cart.subtotal > 0 ? (
           <div className="flex justify-between text-[13px] text-(--ink-soft)">
             <span>
               Add {formatMoney(STORE_POLICY.freeShippingThreshold - cart.subtotal)} more to
@@ -94,11 +102,13 @@ export default function CheckoutSummary({ payload }: { payload: CheckoutPayload 
           <span>{formatMoney(cart.subtotal, cart.currency)}</span>
         </div>
         <p className="text-[11px] leading-snug text-(--ink-soft)">
-          {freeShipping ? "Before tax" : "Before shipping and tax"}; the final total appears at
+          {freeShipping ? "Before tax" : "Before shipping and tax"}; the final total appears in
           checkout.
         </p>
       </div>
-      <p className="mt-2 text-[11px] text-(--ink-soft)">{STORE_POLICY.returnsLine}</p>
+      {CHECKOUT_POLICY_ENABLED ? (
+        <p className="mt-2 text-[11px] text-(--ink-soft)">{STORE_POLICY.returnsLine}</p>
+      ) : null}
       {handoffs.length ? (
         // The backend named where payment happens (a hosted checkout URL, or one per seller).
         <div className="mt-3 flex flex-col gap-2">
@@ -124,11 +134,13 @@ export default function CheckoutSummary({ payload }: { payload: CheckoutPayload 
           className="mt-3 w-full cursor-not-allowed rounded-xl bg-(--accent) py-2.5 text-sm font-bold text-(--ink) opacity-90"
           title="Nothing is charged here. Payment happens when you check out."
         >
-          Continue to checkout
+          {CHECKOUT_POLICY_ENABLED ? "Continue to checkout" : "Checkout handoff not connected"}
         </button>
       )}
       <p id={handoffNoteId} className="mt-2 text-center text-[11px] text-(--ink-soft)/80">
-        Nothing is charged here. Payment happens when you check out.
+        {CHECKOUT_POLICY_ENABLED
+          ? "Nothing is charged here. Payment happens when you check out."
+          : "Review only. Payment and order placement are not connected."}
       </p>
     </section>
   );

@@ -8,9 +8,10 @@
   map to an orchestrator UCP checkout session created without a buyer, so the
   orchestrator owns guest-account and cart behavior.
 - **Surface:** reuse Anthropic's retail demo storefront for the first test.
-- **Safety boundary:** checkout completion and its tool are disabled. The agent can only
-  create, read, update, or cancel its server-held guest checkout session. The API key
-  stays server-side; payment data never enters the model conversation.
+- **Safety boundary:** the checkout tool stages a review-only summary card. The agent can
+  only create, read, update, or cancel its server-held guest checkout session. No handoff,
+  payment, completion, or order creation is exposed. The API key stays server-side;
+  payment data never enters the model conversation.
 - **QAT mutation behavior:** the deployed UCP v1 `PUT` endpoint recalculates a checkout
   but does not apply requested line-item changes. For this POC, each add, quantity change,
   or non-final removal creates a replacement guest checkout containing the complete

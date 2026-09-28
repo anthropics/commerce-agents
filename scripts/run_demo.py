@@ -57,7 +57,10 @@ VERTICALS: dict[str, dict[str, object]] = {
         "api_port": 8004,
         "store": "Chewy",
         "web_vertical": "retail",
-        "web_env": {"NEXT_PUBLIC_CART_ENABLED": "true"},
+        "web_env": {
+            "NEXT_PUBLIC_CART_ENABLED": "true",
+            "NEXT_PUBLIC_CHECKOUT_POLICY_ENABLED": "false",
+        },
     },
 }
 

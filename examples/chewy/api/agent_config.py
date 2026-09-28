@@ -16,7 +16,9 @@ def build_shopping_config() -> ShoppingAgentConfig:
             "when the request is ambiguous; use price and rating filters when the shopper states them."
         ),
         enable_cart=True,
-        enable_checkout=False,
+        # Checkout here means the repository's review-only summary card. Payment,
+        # completion, and order creation remain outside this POC.
+        enable_checkout=True,
         enable_orders=False,
         enable_policies=False,
         enable_fulfillment=False,

@@ -58,5 +58,8 @@ async def cart_add(request: CartAddRequest, record: host.CurrentSession) -> dict
     return await host.direct_add(
         record,
         request,
-        note="Customer tapped the add-to-cart button on {title} ({product_id}), quantity {quantity}.",
+        note=(
+            "The app already added {title} ({product_id}) to the cart, quantity {quantity}. "
+            "Do not add it again."
+        ),
     )
