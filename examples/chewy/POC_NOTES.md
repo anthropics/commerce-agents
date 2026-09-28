@@ -32,7 +32,7 @@ Anthropic retail demo storefront (:3004)
         v
 Anthropic ShoppingAgent + Messages API runtime (:8004)
         |
-        +--> Chewy Search Agent MCP (:8080)
+        +--> Chewy Search Agent MCP (hosted QAT)
         |       +--> Chewy catalog/search services
         |
         +--> Agentic Commerce Orchestrator UCP v2 (QAT)
@@ -127,17 +127,8 @@ model conversation.
 
 ## Run the POC
 
-Start Search Agent:
-
-```bash
-cd ../search-agent
-./gradlew :app:run
-```
-
-Use `AWS_PROFILE=<profile>` if the active default AWS login is not the required Chewy
-profile.
-
-Start the Anthropic agent and storefront:
+Start the Anthropic agent and storefront. It uses the hosted QAT Search Agent by
+default:
 
 ```bash
 cd ../commerce-agents
@@ -148,12 +139,14 @@ set +a
 python scripts/run_demo.py chewy
 ```
 
+For local Search Agent development, start the cloned service separately and set
+`SEARCH_AGENT_MCP_URL=http://localhost:8080/mcp` before running the demo.
+
 Required local configuration:
 
 - A usable `ANTHROPIC_API_KEY` for the Anthropic workspace.
 - `INTERNAL_TEST_AUTOMATION_API_KEY` in
   `agentic-commerce-orchestrator/.env.qat.local`, or `UCP_API_KEY` in the shell.
-- A current Chewy AWS login for Search Agent's downstream access.
 - Access to Chewy's internal QAT endpoints.
 
 Open `http://localhost:3004`.
@@ -177,7 +170,7 @@ data and may change.
 - Repository validation: `scripts/check.py` passed.
 - Python lint and formatting checks passed.
 - Retail storefront TypeScript check passed with `tsc --noEmit`.
-- Live Search Agent search and product-detail calls succeeded.
+- Live hosted-QAT Search Agent search and product-detail calls succeeded.
 - Live multi-item UCP cart test preserved two distinct products and quantity changes
   across a fresh cart read.
 - The live V2 profile advertised protocol `2026-04-08`; V2 create/read and V1 cleanup

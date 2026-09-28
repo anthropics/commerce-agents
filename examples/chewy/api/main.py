@@ -27,8 +27,13 @@ from .backend import ChewyStorefrontBackend
 EXAMPLE_ROOT = Path(__file__).resolve().parents[1]
 load_demo_env(EXAMPLE_ROOT)
 
+DEFAULT_SEARCH_AGENT_MCP_URL = (
+    "https://qat-use1-ai-shared-main.corp-ai-workloads.qat.aws.chewy.cloud/eks/ns/"
+    "applications/search-agent/mcp"
+)
+
 backend = ChewyStorefrontBackend(
-    endpoint=os.environ.get("SEARCH_AGENT_MCP_URL", "http://localhost:8080/mcp"),
+    endpoint=os.environ.get("SEARCH_AGENT_MCP_URL", DEFAULT_SEARCH_AGENT_MCP_URL),
     ucp_base_url=os.environ.get(
         "UCP_ORCHESTRATOR_URL",
         "https://qat-use1-apt-shared-main.plat.qat.aws.chewy.cloud/eks/ns/applications/"

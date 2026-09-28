@@ -3,7 +3,7 @@
 See [POC_NOTES.md](POC_NOTES.md) for the implementation summary, architecture,
 findings, demo script, and remaining gaps.
 
-This is a narrow slice of Anthropic's `ShoppingAgent` connected to Chewy's cloned
+This is a narrow slice of Anthropic's `ShoppingAgent` connected to Chewy's hosted QAT
 Search Agent MCP server and UCP orchestrator. It includes product search, product
 details, and a guest cart. Checkout completion, payment, orders, policies,
 fulfillment, and memory remain off. The agent can stage the repository's checkout
@@ -11,18 +11,6 @@ summary card, but its continuation control stays disabled because this POC has n
 retailer checkout handoff.
 
 ## Run it
-
-Terminal 1:
-
-```bash
-cd ../search-agent
-./gradlew :app:run
-```
-
-Use `AWS_PROFILE=<profile>` when the active default AWS login is not the required Chewy
-profile.
-
-Terminal 2:
 
 ```bash
 cd ../commerce-agents
@@ -33,9 +21,16 @@ set +a
 python scripts/run_demo.py chewy
 ```
 
-Set `SEARCH_AGENT_MCP_URL` only if Search Agent is not at
-`http://localhost:8080/mcp`. The demo API loads `ANTHROPIC_API_KEY` from the same
-locations as the other commerce-agents examples.
+By default the demo calls the hosted QAT Search Agent MCP endpoint, so no local Search
+Agent process is required. To develop against a local Search Agent instead, start it
+separately and set:
+
+```bash
+export SEARCH_AGENT_MCP_URL=http://localhost:8080/mcp
+```
+
+The demo API loads `ANTHROPIC_API_KEY` from the same locations as the other
+commerce-agents examples.
 
 The demo uses `INTERNAL_TEST_AUTOMATION_API_KEY` from the orchestrator's local QAT
 environment file. `UCP_API_KEY` overrides it, and `UCP_ORCHESTRATOR_URL` overrides the
