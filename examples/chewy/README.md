@@ -1,5 +1,8 @@
 # Chewy shopping-agent POC
 
+See [POC_NOTES.md](POC_NOTES.md) for the implementation summary, architecture,
+findings, demo script, and remaining gaps.
+
 This is a narrow slice of Anthropic's `ShoppingAgent` connected to Chewy's cloned
 Search Agent MCP server and UCP orchestrator. It includes product search, product
 details, and a guest cart. Checkout completion, payment, orders, policies,
@@ -13,8 +16,11 @@ Terminal 1:
 
 ```bash
 cd ../search-agent
-AWS_PROFILE=corp_ai ./gradlew :app:run
+./gradlew :app:run
 ```
+
+Use `AWS_PROFILE=<profile>` when the active default AWS login is not the required Chewy
+profile.
 
 Terminal 2:
 
