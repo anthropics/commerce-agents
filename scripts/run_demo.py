@@ -7,6 +7,7 @@
     python scripts/run_demo.py travel              # API :8001 + storefront :3001
     python scripts/run_demo.py telecom             # API :8002 + storefront :3002
     python scripts/run_demo.py entertainment       # API :8003 + storefront :3003
+    python scripts/run_demo.py chewy                # API :8004 + retail storefront :3004
     python scripts/run_demo.py retail --merchant   # API :8000 + merchant portal :3100
     python scripts/run_demo.py retail --all        # API :8000 + storefront :3000 + portal :3100
 
@@ -51,6 +52,13 @@ VERTICALS: dict[str, dict[str, object]] = {
     "travel": {"api_port": 8001, "store": "ACME Travel"},
     "telecom": {"api_port": 8002, "store": "ACME Mobile"},
     "entertainment": {"api_port": 8003, "store": "ACME Tickets"},
+    # The first Chewy slice proves its catalog adapter against the existing retail UI.
+    "chewy": {
+        "api_port": 8004,
+        "store": "Chewy",
+        "web_vertical": "retail",
+        "web_env": {"NEXT_PUBLIC_CART_ENABLED": "false"},
+    },
 }
 
 PYTHON_MODULES = (
@@ -185,8 +193,18 @@ def start_api(vertical: str, port: int, federated: bool) -> subprocess.Popen:
     return spawn(command, REPO_ROOT, env)
 
 
-def start_web(app_dir: Path, port: int, api_port: int, prod: bool) -> subprocess.Popen:
-    env = {**os.environ, "NEXT_PUBLIC_API_URL": f"http://localhost:{api_port}"}
+def start_web(
+    app_dir: Path,
+    port: int,
+    api_port: int,
+    prod: bool,
+    extra_env: dict[str, str] | None = None,
+) -> subprocess.Popen:
+    env = {
+        **os.environ,
+        "NEXT_PUBLIC_API_URL": f"http://localhost:{api_port}",
+        **(extra_env or {}),
+    }
     if prod:
         subprocess.run([str(NEXT), "build"], cwd=app_dir, check=True, env=env)
     return spawn([str(NEXT), "start" if prod else "dev", "--port", str(port)], app_dir, env)
@@ -270,7 +288,8 @@ def main() -> int:
 
     webs: list[tuple[str, Path, int]] = []
     if run_web and not args.merchant:
-        webs.append(("storefront", EXAMPLES_DIR / args.vertical / "storefront-web", web_port))
+        web_vertical = str(config.get("web_vertical", args.vertical))
+        webs.append(("storefront", EXAMPLES_DIR / web_vertical / "storefront-web", web_port))
     if run_web and (args.merchant or args.all):
         webs.append(
             ("merchant portal", EXAMPLES_DIR / args.vertical / "merchant-web", web_port + 100)
@@ -310,8 +329,15 @@ def main() -> int:
                 raise RuntimeError(f"The API didn't come up on :{api_port} — see output above.")
         if webs:
             ensure_web_deps(install=not args.no_install)
+        web_env = config.get("web_env")
         for label, app_dir, port in webs:
-            process = start_web(app_dir, port, api_port, args.prod)
+            process = start_web(
+                app_dir,
+                port,
+                api_port,
+                args.prod,
+                web_env if isinstance(web_env, dict) else None,
+            )
             processes.append((label, process))
             pipe_output(process, f"{args.vertical}-{app_dir.name}")
             if not wait_for(f"http://localhost:{port}", 180, process):

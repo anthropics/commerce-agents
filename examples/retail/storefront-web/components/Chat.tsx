@@ -10,6 +10,7 @@ import type { CartPayload } from "@/lib/types";
 import GenerativeBlock from "./generative";
 
 const WIDE = new Set(["comparison", "plan"]);
+const CART_ENABLED = process.env.NEXT_PUBLIC_CART_ENABLED !== "false";
 
 /** Shimmers where the carousel will land while a search runs. */
 function Pending({ item }: { item: AssistantChatItem }) {
@@ -38,11 +39,15 @@ export default function Chat({ chat, home, onCartUpdate }: { chat: AgentTurn; ho
         <GenerativeBlock
           block={segment.block}
           status={segment.status}
-          onAdd={async (product) => {
-            const cart = await addToCart(product.product_id);
-            if (cart) onCartUpdate(cart);
-            return cart !== null;
-          }}
+          onAdd={
+            CART_ENABLED
+              ? async (product) => {
+                  const cart = await addToCart(product.product_id);
+                  if (cart) onCartUpdate(cart);
+                  return cart !== null;
+                }
+              : undefined
+          }
         />
       )}
     />
