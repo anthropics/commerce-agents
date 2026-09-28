@@ -11,6 +11,12 @@
 - **Safety boundary:** checkout completion and its tool are disabled. The agent can only
   create, read, update, or cancel its server-held guest checkout session. The API key
   stays server-side; payment data never enters the model conversation.
+- **QAT mutation behavior:** the deployed UCP v1 `PUT` endpoint recalculates a checkout
+  but does not apply requested line-item changes. For this POC, each add, quantity change,
+  or non-final removal creates a replacement guest checkout containing the complete
+  desired cart and then cancels the superseded session. A canceled or partially accepted
+  create response is rejected, so a Search Agent item that QAT checkout considers
+  ineligible cannot appear as a phantom cart line.
 - **Deferred:** real storefront embedding, signed-in customer identity, checkout/payment,
   orders, policies, fulfillment, and memory.
 - **Protocol note:** Search Agent currently supports MCP `2025-06-18`; its documented

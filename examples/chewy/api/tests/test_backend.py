@@ -15,29 +15,19 @@ class FakeUcpClient:
         self.checkout_id = "checkout-1"
         self.quantities: dict[str, int] = {}
         self.calls: list[tuple[str, object]] = []
-        self.fail_update = False
+        self.cancel_create = False
 
     async def create_checkout(self, quantities: dict[str, int]) -> dict:
         self.calls.append(("create", quantities))
         self.quantities = dict(quantities)
-        return self.payload()
+        return self.payload(status="canceled" if self.cancel_create else "incomplete")
 
     async def get_checkout(self, checkout_id: str) -> dict:
         self.calls.append(("get", checkout_id))
         return self.payload()
 
-    async def update_checkout(
-        self, checkout_id: str, quantities: dict[str, int], line_ids: dict[str, str]
-    ) -> dict:
-        self.calls.append(("update", (checkout_id, quantities, line_ids)))
-        if self.fail_update:
-            raise RuntimeError("unavailable")
-        self.quantities = dict(quantities)
-        return self.payload()
-
     async def cancel_checkout(self, checkout_id: str) -> dict:
         self.calls.append(("cancel", checkout_id))
-        self.quantities = {}
         return self.payload(status="canceled")
 
     def payload(self, status: str = "incomplete") -> dict:
@@ -157,33 +147,41 @@ async def test_cart_uses_guest_checkout_session_for_add_update_and_remove() -> N
     assert removed.items == []
     assert ucp.calls == [
         ("create", {"767758": 1}),
-        (
-            "update",
-            (
-                "checkout-1",
-                {"767758": 1, "91837": 2},
-                {"767758": "1"},
-            ),
-        ),
-        (
-            "update",
-            (
-                "checkout-1",
-                {"767758": 3, "91837": 2},
-                {"767758": "1", "91837": "2"},
-            ),
-        ),
-        (
-            "update",
-            (
-                "checkout-1",
-                {"767758": 3},
-                {"767758": "1", "91837": "2"},
-            ),
-        ),
+        ("create", {"767758": 1, "91837": 2}),
+        ("cancel", "checkout-1"),
+        ("create", {"767758": 3, "91837": 2}),
+        ("cancel", "checkout-1"),
+        ("create", {"767758": 3}),
+        ("cancel", "checkout-1"),
         ("get", "checkout-1"),
         ("cancel", "checkout-1"),
     ]
+
+
+@pytest.mark.asyncio
+async def test_canceled_ucp_create_is_not_accepted_as_a_cart() -> None:
+    ucp = FakeUcpClient()
+    ucp.cancel_create = True
+    backend = ChewyStorefrontBackend(call_tool=unused_tool, ucp_client=ucp)
+
+    with pytest.raises(NotOffered, match="could not be added"):
+        await backend.add_to_cart(session(), "767758", 1)
+
+    assert session().session_id not in backend._carts
+
+
+@pytest.mark.asyncio
+async def test_replacement_create_failure_preserves_existing_cart() -> None:
+    ucp = FakeUcpClient()
+    backend = ChewyStorefrontBackend(call_tool=unused_tool, ucp_client=ucp)
+    await backend.add_to_cart(session(), "767758", 1)
+    ucp.cancel_create = True
+
+    with pytest.raises(NotOffered, match="could not be added"):
+        await backend.add_to_cart(session(), "91837", 1)
+
+    assert backend._carts[session().session_id].quantities == {"767758": 1}
+    assert ("cancel", "checkout-1") not in ucp.calls
 
 
 @pytest.mark.asyncio
@@ -191,9 +189,9 @@ async def test_failed_cart_update_does_not_change_local_cart_state() -> None:
     ucp = FakeUcpClient()
     backend = ChewyStorefrontBackend(call_tool=unused_tool, ucp_client=ucp)
     await backend.add_to_cart(session(), "767758", 1)
-    ucp.fail_update = True
+    ucp.cancel_create = True
 
-    with pytest.raises(RuntimeError, match="unavailable"):
+    with pytest.raises(NotOffered, match="could not be added"):
         await backend.update_cart_item(session(), "767758", 2)
 
     assert backend._carts[session().session_id].quantities == {"767758": 1}

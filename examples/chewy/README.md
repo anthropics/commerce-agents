@@ -42,6 +42,10 @@ Open the storefront URL printed by `run_demo.py` and try:
 Success means the assistant calls the real Chewy catalog, renders grounded product
 cards, can fetch details, and can add, change, and remove products in a guest cart. The
 cart is a UCP checkout session, but this POC never completes it or sends payment data.
+Because the deployed QAT UCP update operation currently recalculates without changing
+line items, each successful mutation replaces the guest checkout with the complete
+desired cart and cancels the prior session. Products rejected by QAT checkout are shown
+as unavailable instead of being added locally.
 The reused retail storefront still has ACME demo chrome. Replacing that shell with the
 real storefront is a later slice.
 

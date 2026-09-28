@@ -38,26 +38,6 @@ class UcpOrchestratorClient:
     async def get_checkout(self, checkout_id: str) -> dict[str, Any]:
         return await self._request("GET", f"/checkout-sessions/{checkout_id}")
 
-    async def update_checkout(
-        self,
-        checkout_id: str,
-        quantities: dict[str, int],
-        line_ids: dict[str, str],
-    ) -> dict[str, Any]:
-        lines = [
-            {
-                "id": line_ids.get(product_id),
-                "item": {"id": product_id},
-                "quantity": quantity,
-            }
-            for product_id, quantity in quantities.items()
-        ]
-        return await self._request(
-            "PUT",
-            f"/checkout-sessions/{checkout_id}",
-            json={"line_items": lines, "currency": "USD"},
-        )
-
     async def cancel_checkout(self, checkout_id: str) -> dict[str, Any]:
         return await self._request("POST", f"/checkout-sessions/{checkout_id}/cancel", json={})
 

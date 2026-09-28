@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import asyncio
 import json
+import logging
 from collections.abc import Awaitable, Callable
 from dataclasses import dataclass, field
 from typing import Any, Protocol
@@ -37,10 +38,6 @@ class UcpClient(Protocol):
 
     async def get_checkout(self, checkout_id: str) -> dict[str, Any]: ...
 
-    async def update_checkout(
-        self, checkout_id: str, quantities: dict[str, int], line_ids: dict[str, str]
-    ) -> dict[str, Any]: ...
-
     async def cancel_checkout(self, checkout_id: str) -> dict[str, Any]: ...
 
 
@@ -48,7 +45,9 @@ class UcpClient(Protocol):
 class _CartState:
     checkout_id: str
     quantities: dict[str, int] = field(default_factory=dict)
-    line_ids: dict[str, str] = field(default_factory=dict)
+
+
+logger = logging.getLogger(__name__)
 
 
 SEARCH_FIELDS = [
@@ -185,20 +184,12 @@ class ChewyStorefrontBackend(StorefrontBackend):
             state = self._carts.get(session.session_id)
             if state is None:
                 quantities = {product_id: quantity}
-                payload = await self._ucp.create_checkout(quantities)
-                checkout_id = str(payload.get("id") or "")
-                if not checkout_id:
-                    raise NotOffered("The cart service returned no checkout-session id")
-                state = _CartState(checkout_id=checkout_id, quantities=quantities)
-                self._sync_state(state, payload)
+                state, payload = await self._create_cart(quantities)
                 self._carts[session.session_id] = state
             else:
                 quantities = dict(state.quantities)
                 quantities[product_id] = quantities.get(product_id, 0) + quantity
-                payload = await self._ucp.update_checkout(
-                    state.checkout_id, quantities, state.line_ids
-                )
-                self._sync_state(state, payload)
+                state, payload = await self._replace_cart(session.session_id, state, quantities)
             return self._cart_from_checkout(payload)
 
     async def update_cart_item(
@@ -210,8 +201,7 @@ class ChewyStorefrontBackend(StorefrontBackend):
                 raise NotOffered("That product is not in the cart")
             quantities = dict(state.quantities)
             quantities[product_id] = quantity
-            payload = await self._ucp.update_checkout(state.checkout_id, quantities, state.line_ids)
-            self._sync_state(state, payload)
+            state, payload = await self._replace_cart(session.session_id, state, quantities)
             return self._cart_from_checkout(payload)
 
     async def remove_from_cart(self, session: ShoppingSessionContext, product_id: str) -> Cart:
@@ -225,27 +215,53 @@ class ChewyStorefrontBackend(StorefrontBackend):
                 await self._ucp.cancel_checkout(state.checkout_id)
                 self._carts.pop(session.session_id, None)
                 return Cart()
-            payload = await self._ucp.update_checkout(state.checkout_id, quantities, state.line_ids)
-            self._sync_state(state, payload)
+            state, payload = await self._replace_cart(session.session_id, state, quantities)
             return self._cart_from_checkout(payload)
 
     def _lock(self, session_id: str) -> asyncio.Lock:
         return self._cart_locks.setdefault(session_id, asyncio.Lock())
 
+    async def _create_cart(self, quantities: dict[str, int]) -> tuple[_CartState, dict[str, Any]]:
+        payload = await self._ucp.create_checkout(quantities)
+        checkout_id = str(payload.get("id") or "")
+        actual = self._quantities_from_checkout(payload)
+        if payload.get("status") == "canceled" or not checkout_id or actual != quantities:
+            if checkout_id and payload.get("status") != "canceled":
+                try:
+                    await self._ucp.cancel_checkout(checkout_id)
+                except Exception:
+                    logger.warning("failed to cancel rejected replacement checkout")
+            raise NotOffered("One or more requested products could not be added to the cart")
+        return _CartState(checkout_id=checkout_id, quantities=actual), payload
+
+    async def _replace_cart(
+        self, session_id: str, old_state: _CartState, quantities: dict[str, int]
+    ) -> tuple[_CartState, dict[str, Any]]:
+        # QAT's checkout-session PUT recalculates but does not currently mutate lines.
+        # Create the complete desired cart first, then swap local state before best-effort
+        # cleanup so a cleanup outage cannot lose the customer's new cart.
+        new_state, payload = await self._create_cart(quantities)
+        self._carts[session_id] = new_state
+        try:
+            await self._ucp.cancel_checkout(old_state.checkout_id)
+        except Exception:
+            logger.warning("failed to cancel superseded checkout session")
+        return new_state, payload
+
     @staticmethod
     def _sync_state(state: _CartState, payload: dict[str, Any]) -> None:
+        state.quantities = ChewyStorefrontBackend._quantities_from_checkout(payload)
+
+    @staticmethod
+    def _quantities_from_checkout(payload: dict[str, Any]) -> dict[str, int]:
         quantities: dict[str, int] = {}
-        line_ids: dict[str, str] = {}
         for line in payload.get("line_items") or []:
             item = line.get("item") or {}
             product_id = str(item.get("id") or "")
             quantity = line.get("quantity")
             if product_id and isinstance(quantity, int) and quantity > 0:
                 quantities[product_id] = quantity
-                if line.get("id") is not None:
-                    line_ids[product_id] = str(line["id"])
-        state.quantities = quantities
-        state.line_ids = line_ids
+        return quantities
 
     def _cart_from_checkout(self, payload: dict[str, Any]) -> Cart:
         items: list[CartItem] = []
