@@ -7,7 +7,57 @@ import pytest
 
 from chewy.api.agent_config import build_shopping_config
 from chewy.api.backend import ChewyStorefrontBackend
-from shopping_agent import SearchFilters, ShoppingSessionContext
+from shopping_agent import NotOffered, SearchFilters, ShoppingSessionContext
+
+
+class FakeUcpClient:
+    def __init__(self) -> None:
+        self.checkout_id = "checkout-1"
+        self.quantities: dict[str, int] = {}
+        self.calls: list[tuple[str, object]] = []
+        self.fail_update = False
+
+    async def create_checkout(self, quantities: dict[str, int]) -> dict:
+        self.calls.append(("create", quantities))
+        self.quantities = dict(quantities)
+        return self.payload()
+
+    async def get_checkout(self, checkout_id: str) -> dict:
+        self.calls.append(("get", checkout_id))
+        return self.payload()
+
+    async def update_checkout(
+        self, checkout_id: str, quantities: dict[str, int], line_ids: dict[str, str]
+    ) -> dict:
+        self.calls.append(("update", (checkout_id, quantities, line_ids)))
+        if self.fail_update:
+            raise RuntimeError("unavailable")
+        self.quantities = dict(quantities)
+        return self.payload()
+
+    async def cancel_checkout(self, checkout_id: str) -> dict:
+        self.calls.append(("cancel", checkout_id))
+        self.quantities = {}
+        return self.payload(status="canceled")
+
+    def payload(self, status: str = "incomplete") -> dict:
+        return {
+            "id": self.checkout_id,
+            "status": status,
+            "currency": "USD",
+            "line_items": [
+                {
+                    "id": str(index),
+                    "item": {
+                        "id": product_id,
+                        "title": f"Product {product_id}",
+                        "price": 2949,
+                    },
+                    "quantity": quantity,
+                }
+                for index, (product_id, quantity) in enumerate(self.quantities.items(), 1)
+            ],
+        }
 
 
 def session() -> ShoppingSessionContext:
@@ -87,20 +137,91 @@ async def test_product_details_maps_description_and_review_summaries() -> None:
     ]
 
 
-def test_agent_exposes_only_read_only_catalog_capabilities() -> None:
+@pytest.mark.asyncio
+async def test_cart_uses_guest_checkout_session_for_add_update_and_remove() -> None:
+    ucp = FakeUcpClient()
+    backend = ChewyStorefrontBackend(call_tool=unused_tool, ucp_client=ucp)
+
+    added = await backend.add_to_cart(session(), "767758", 1)
+    added_second = await backend.add_to_cart(session(), "91837", 2)
+    updated = await backend.update_cart_item(session(), "767758", 3)
+    one_left = await backend.remove_from_cart(session(), "91837")
+    fetched = await backend.get_cart(session())
+    removed = await backend.remove_from_cart(session(), "767758")
+
+    assert added.items[0].price == 29.49
+    assert {item.product_id for item in added_second.items} == {"767758", "91837"}
+    assert updated.items[0].quantity == 3
+    assert [item.product_id for item in one_left.items] == ["767758"]
+    assert fetched.items[0].product_id == "767758"
+    assert removed.items == []
+    assert ucp.calls == [
+        ("create", {"767758": 1}),
+        (
+            "update",
+            (
+                "checkout-1",
+                {"767758": 1, "91837": 2},
+                {"767758": "1"},
+            ),
+        ),
+        (
+            "update",
+            (
+                "checkout-1",
+                {"767758": 3, "91837": 2},
+                {"767758": "1", "91837": "2"},
+            ),
+        ),
+        (
+            "update",
+            (
+                "checkout-1",
+                {"767758": 3},
+                {"767758": "1", "91837": "2"},
+            ),
+        ),
+        ("get", "checkout-1"),
+        ("cancel", "checkout-1"),
+    ]
+
+
+@pytest.mark.asyncio
+async def test_failed_cart_update_does_not_change_local_cart_state() -> None:
+    ucp = FakeUcpClient()
+    backend = ChewyStorefrontBackend(call_tool=unused_tool, ucp_client=ucp)
+    await backend.add_to_cart(session(), "767758", 1)
+    ucp.fail_update = True
+
+    with pytest.raises(RuntimeError, match="unavailable"):
+        await backend.update_cart_item(session(), "767758", 2)
+
+    assert backend._carts[session().session_id].quantities == {"767758": 1}
+
+
+@pytest.mark.asyncio
+async def test_cart_rejects_update_for_product_not_in_cart() -> None:
+    backend = ChewyStorefrontBackend(call_tool=unused_tool, ucp_client=FakeUcpClient())
+
+    with pytest.raises(NotOffered, match="not in the cart"):
+        await backend.update_cart_item(session(), "unknown", 2)
+
+
+def test_agent_exposes_cart_but_not_checkout_or_account_capabilities() -> None:
     absent = build_shopping_config().absent_tools()
 
+    assert not {"get_cart", "add_to_cart", "update_cart_item", "remove_from_cart"} & absent
     assert {
-        "get_cart",
-        "add_to_cart",
-        "update_cart_item",
-        "remove_from_cart",
         "checkout",
         "get_orders",
         "get_order_status",
         "search_policies",
         "get_fulfillment_options",
     } <= absent
+
+
+async def unused_tool(name: str, arguments: dict) -> dict:
+    raise AssertionError(f"unexpected Search Agent call: {name} {arguments}")
 
 
 def search_row(product_id: str, brand: str, price: float, rating: float) -> dict:

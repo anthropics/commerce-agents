@@ -52,12 +52,12 @@ VERTICALS: dict[str, dict[str, object]] = {
     "travel": {"api_port": 8001, "store": "ACME Travel"},
     "telecom": {"api_port": 8002, "store": "ACME Mobile"},
     "entertainment": {"api_port": 8003, "store": "ACME Tickets"},
-    # The first Chewy slice proves its catalog adapter against the existing retail UI.
+    # The Chewy slice uses the existing retail UI with a UCP-backed guest cart.
     "chewy": {
         "api_port": 8004,
         "store": "Chewy",
         "web_vertical": "retail",
-        "web_env": {"NEXT_PUBLIC_CART_ENABLED": "false"},
+        "web_env": {"NEXT_PUBLIC_CART_ENABLED": "true"},
     },
 }
 

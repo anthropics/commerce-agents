@@ -25,6 +25,16 @@ def test_domain_search_notes_render_only_when_configured(config, skills):
     assert text.replace(f"\n- {note}", "") == baseline
 
 
+def test_checkout_can_be_disabled_while_cart_remains_available(config, skills):
+    cart_only = config.model_copy(update={"enable_cart": True, "enable_checkout": False})
+    text = build_static_system(cart_only, skills)
+
+    assert "checkout" in cart_only.absent_tools()
+    assert "add_to_cart" not in cart_only.absent_tools()
+    assert "checkout stages a summary" not in text
+    assert "store has no checkout here" in text
+
+
 def test_dynamic_context_is_fenced_and_contains_session_data():
     prefs = UserPreferences(user_id="u-1", display_name="Priya", preferences={"budget": "low"})
     cart = Cart(items=[CartItem(product_id="p-100", title="Tent", price=149.0, quantity=1)])

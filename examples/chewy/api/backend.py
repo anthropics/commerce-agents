@@ -5,12 +5,15 @@
 
 from __future__ import annotations
 
+import asyncio
 import json
 from collections.abc import Awaitable, Callable
-from typing import Any
+from dataclasses import dataclass, field
+from typing import Any, Protocol
 
 from shopping_agent import (
     Cart,
+    CartItem,
     FulfillmentOption,
     NotOffered,
     Order,
@@ -24,8 +27,29 @@ from shopping_agent import (
 )
 
 from .mcp_client import SearchAgentMcpClient
+from .ucp_client import UcpOrchestratorClient
 
 ToolCaller = Callable[[str, dict[str, Any]], Awaitable[dict[str, Any]]]
+
+
+class UcpClient(Protocol):
+    async def create_checkout(self, quantities: dict[str, int]) -> dict[str, Any]: ...
+
+    async def get_checkout(self, checkout_id: str) -> dict[str, Any]: ...
+
+    async def update_checkout(
+        self, checkout_id: str, quantities: dict[str, int], line_ids: dict[str, str]
+    ) -> dict[str, Any]: ...
+
+    async def cancel_checkout(self, checkout_id: str) -> dict[str, Any]: ...
+
+
+@dataclass
+class _CartState:
+    checkout_id: str
+    quantities: dict[str, int] = field(default_factory=dict)
+    line_ids: dict[str, str] = field(default_factory=dict)
+
 
 SEARCH_FIELDS = [
     "partNumber",
@@ -45,7 +69,7 @@ SEARCH_FIELDS = [
 
 
 class ChewyStorefrontBackend(StorefrontBackend):
-    """Read-only catalog backend backed by the local Search Agent MCP server."""
+    """Chewy catalog plus a guest cart backed by a UCP checkout session."""
 
     store_name = "Chewy"
 
@@ -54,9 +78,15 @@ class ChewyStorefrontBackend(StorefrontBackend):
         endpoint: str = "http://localhost:8080/mcp",
         *,
         call_tool: ToolCaller | None = None,
+        ucp_client: UcpClient | None = None,
+        ucp_base_url: str = "",
+        ucp_api_key: str = "",
     ) -> None:
         self._client = SearchAgentMcpClient(endpoint)
         self._call_tool = call_tool or self._client.call_tool
+        self._ucp = ucp_client or UcpOrchestratorClient(ucp_base_url, ucp_api_key)
+        self._carts: dict[str, _CartState] = {}
+        self._cart_locks: dict[str, asyncio.Lock] = {}
         # The shared demo host uses this cache for catalog detail routes and UI enrichment.
         self.products: dict[str, ProductDetails] = {}
 
@@ -133,31 +163,112 @@ class ChewyStorefrontBackend(StorefrontBackend):
         return self.products.get(product_id)
 
     def reset_session(self, session_id: str) -> None:
-        del session_id
+        self._carts.pop(session_id, None)
+        self._cart_locks.pop(session_id, None)
 
     def recent_orders(self, limit: int = 6) -> list[Order]:
         del limit
         return []
 
     async def get_cart(self, session: ShoppingSessionContext) -> Cart:
-        del session
-        return Cart()
+        state = self._carts.get(session.session_id)
+        if state is None:
+            return Cart()
+        payload = await self._ucp.get_checkout(state.checkout_id)
+        self._sync_state(state, payload)
+        return self._cart_from_checkout(payload)
 
     async def add_to_cart(
         self, session: ShoppingSessionContext, product_id: str, quantity: int
     ) -> Cart:
-        del session, product_id, quantity
-        raise NotOffered("Cart is outside this read-only proof of concept")
+        async with self._lock(session.session_id):
+            state = self._carts.get(session.session_id)
+            if state is None:
+                quantities = {product_id: quantity}
+                payload = await self._ucp.create_checkout(quantities)
+                checkout_id = str(payload.get("id") or "")
+                if not checkout_id:
+                    raise NotOffered("The cart service returned no checkout-session id")
+                state = _CartState(checkout_id=checkout_id, quantities=quantities)
+                self._sync_state(state, payload)
+                self._carts[session.session_id] = state
+            else:
+                quantities = dict(state.quantities)
+                quantities[product_id] = quantities.get(product_id, 0) + quantity
+                payload = await self._ucp.update_checkout(
+                    state.checkout_id, quantities, state.line_ids
+                )
+                self._sync_state(state, payload)
+            return self._cart_from_checkout(payload)
 
     async def update_cart_item(
         self, session: ShoppingSessionContext, product_id: str, quantity: int
     ) -> Cart:
-        del session, product_id, quantity
-        raise NotOffered("Cart is outside this read-only proof of concept")
+        async with self._lock(session.session_id):
+            state = self._carts.get(session.session_id)
+            if state is None or product_id not in state.quantities:
+                raise NotOffered("That product is not in the cart")
+            quantities = dict(state.quantities)
+            quantities[product_id] = quantity
+            payload = await self._ucp.update_checkout(state.checkout_id, quantities, state.line_ids)
+            self._sync_state(state, payload)
+            return self._cart_from_checkout(payload)
 
     async def remove_from_cart(self, session: ShoppingSessionContext, product_id: str) -> Cart:
-        del session, product_id
-        raise NotOffered("Cart is outside this read-only proof of concept")
+        async with self._lock(session.session_id):
+            state = self._carts.get(session.session_id)
+            if state is None or product_id not in state.quantities:
+                raise NotOffered("That product is not in the cart")
+            quantities = dict(state.quantities)
+            del quantities[product_id]
+            if not quantities:
+                await self._ucp.cancel_checkout(state.checkout_id)
+                self._carts.pop(session.session_id, None)
+                return Cart()
+            payload = await self._ucp.update_checkout(state.checkout_id, quantities, state.line_ids)
+            self._sync_state(state, payload)
+            return self._cart_from_checkout(payload)
+
+    def _lock(self, session_id: str) -> asyncio.Lock:
+        return self._cart_locks.setdefault(session_id, asyncio.Lock())
+
+    @staticmethod
+    def _sync_state(state: _CartState, payload: dict[str, Any]) -> None:
+        quantities: dict[str, int] = {}
+        line_ids: dict[str, str] = {}
+        for line in payload.get("line_items") or []:
+            item = line.get("item") or {}
+            product_id = str(item.get("id") or "")
+            quantity = line.get("quantity")
+            if product_id and isinstance(quantity, int) and quantity > 0:
+                quantities[product_id] = quantity
+                if line.get("id") is not None:
+                    line_ids[product_id] = str(line["id"])
+        state.quantities = quantities
+        state.line_ids = line_ids
+
+    def _cart_from_checkout(self, payload: dict[str, Any]) -> Cart:
+        items: list[CartItem] = []
+        for line in payload.get("line_items") or []:
+            item = line.get("item") or {}
+            product_id = str(item.get("id") or "")
+            quantity = line.get("quantity")
+            price_cents = item.get("price")
+            if not product_id or not isinstance(quantity, int) or quantity < 1:
+                continue
+            cached = self.products.get(product_id)
+            title = str(item.get("title") or (cached.title if cached else product_id))
+            price = price_cents / 100 if isinstance(price_cents, int | float) else 0.0
+            items.append(
+                CartItem(
+                    product_id=product_id,
+                    title=title,
+                    price=price,
+                    quantity=quantity,
+                    image_url=item.get("image_url") or (cached.image_url if cached else None),
+                )
+            )
+        return Cart(items=items, currency=str(payload.get("currency") or "USD"))
 
     async def get_preferences(self, session: ShoppingSessionContext) -> UserPreferences:
         return UserPreferences(user_id=session.user_id, display_name="Guest")

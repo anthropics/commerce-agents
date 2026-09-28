@@ -30,6 +30,7 @@ def build_static_system(config: ShoppingAgentConfig, skills: SkillRegistry) -> s
 
     domain_search_rule = f"\n- {config.domain_search_notes}" if config.domain_search_notes else ""
     cart, orders = config.enable_cart, config.enable_orders
+    checkout = cart and config.enable_checkout
     terms_sources = " or ".join(
         name
         for name, on in (
@@ -67,8 +68,12 @@ def build_static_system(config: ShoppingAgentConfig, skills: SkillRegistry) -> s
         else ""
     )
     confirmed_writes = (
-        "an add or a save after the tool call succeeds, never before; a staged checkout is "
-        "confirmed by its summary card, so put what to check in its note"
+        "an add or a save after the tool call succeeds, never before"
+        + (
+            "; a staged checkout is confirmed by its summary card, so put what to check in its note"
+            if checkout
+            else ""
+        )
         if cart
         else "a save after the tool call succeeds, never before"
     )
@@ -91,6 +96,15 @@ def build_static_system(config: ShoppingAgentConfig, skills: SkillRegistry) -> s
         if config.enable_fulfillment
         else ""
     )
+    checkout_rules = (
+        "\n- checkout stages a summary the customer confirms in the app; it places no order "
+        "and charges nothing, and your text must not suggest otherwise. Once they ask for "
+        "it, finish the staging this turn: add anything they settled "
+        "on that never reached the cart, point out anything in the cart the conversation "
+        f"does not account for (a duplicate line, an unexplained quantity){fulfillment_clause}."
+        if checkout
+        else ""
+    )
     cart_rules = (
         "\n- A cart tool changes exactly what the customer asked to change, quantity "
         "included; do not add an extra, an add-on, or a warranty they did not ask for. When "
@@ -99,19 +113,14 @@ def build_static_system(config: ShoppingAgentConfig, skills: SkillRegistry) -> s
         "as chips."
         "\n- After a write, one sentence says what changed and what the cart now comes to; "
         "the cart panel shows the line items."
-        f"{reorder_rule}"
-        "\n- checkout stages a summary the customer confirms in the app; it places no order "
-        "and charges nothing, and your text must not suggest otherwise. Once they ask for "
-        "it, finish the staging this turn: add anything they settled "
-        "on that never reached the cart, point out anything in the cart the conversation "
-        f"does not account for (a duplicate line, an unexplained quantity){fulfillment_clause}."
+        f"{reorder_rule}{checkout_rules}"
         if cart
         else ""
     )
-    absent_names = [
+    absent_names = ["a cart or checkout"] if not cart else ([] if checkout else ["checkout"])
+    absent_names += [
         label
         for label, on in (
-            ("a cart or checkout", cart),
             ("order history or tracking", orders),
             ("a lookup of the store's terms", config.enable_policies),
             ("delivery or pickup options", config.enable_fulfillment),

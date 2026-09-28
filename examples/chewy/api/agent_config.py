@@ -1,7 +1,7 @@
 # Copyright 2026 Anthropic PBC
 # SPDX-License-Identifier: Apache-2.0
 
-"""Capabilities enabled for the read-only Chewy proof of concept."""
+"""Capabilities enabled for the Chewy product-search and guest-cart POC."""
 
 from shopping_agent import ShoppingAgentConfig
 
@@ -15,7 +15,8 @@ def build_shopping_config() -> ShoppingAgentConfig:
             "This catalog contains pet products. Ask for the pet type and important constraints "
             "when the request is ambiguous; use price and rating filters when the shopper states them."
         ),
-        enable_cart=False,
+        enable_cart=True,
+        enable_checkout=False,
         enable_orders=False,
         enable_policies=False,
         enable_fulfillment=False,
