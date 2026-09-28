@@ -32,7 +32,7 @@ backend = ChewyStorefrontBackend(
     ucp_base_url=os.environ.get(
         "UCP_ORCHESTRATOR_URL",
         "https://qat-use1-apt-shared-main.plat.qat.aws.chewy.cloud/eks/ns/applications/"
-        "agentic-commerce-orchestrator/api/ucp/v1",
+        "agentic-commerce-orchestrator/api/ucp/v2",
     ),
     ucp_api_key=os.environ.get("UCP_API_KEY")
     or os.environ.get("INTERNAL_TEST_AUTOMATION_API_KEY", ""),

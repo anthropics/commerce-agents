@@ -237,9 +237,9 @@ class ChewyStorefrontBackend(StorefrontBackend):
     async def _replace_cart(
         self, session_id: str, old_state: _CartState, quantities: dict[str, int]
     ) -> tuple[_CartState, dict[str, Any]]:
-        # QAT's checkout-session PUT recalculates but does not currently mutate lines.
+        # QAT's V2 checkout-session PUT recalculates but does not currently mutate lines.
         # Create the complete desired cart first, then swap local state before best-effort
-        # cleanup so a cleanup outage cannot lose the customer's new cart.
+        # V1 lifecycle cleanup so a cleanup outage cannot lose the customer's new cart.
         new_state, payload = await self._create_cart(quantities)
         self._carts[session_id] = new_state
         try:

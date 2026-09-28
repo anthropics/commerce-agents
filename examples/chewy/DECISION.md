@@ -9,13 +9,15 @@
   orchestrator owns guest-account and cart behavior.
 - **Surface:** reuse Anthropic's retail demo storefront for the first test.
 - **Safety boundary:** the checkout tool stages a review-only summary card. The agent can
-  only create, read, update, or cancel its server-held guest checkout session. No handoff,
+  create and read its server-held guest checkout session; V1 cancel is used only for
+  lifecycle cleanup. No handoff,
   payment, completion, or order creation is exposed. The API key stays server-side;
   payment data never enters the model conversation.
-- **QAT mutation behavior:** the deployed UCP v1 `PUT` endpoint recalculates a checkout
+- **QAT mutation behavior:** the deployed UCP v2 `PUT` endpoint recalculates a checkout
   but does not apply requested line-item changes. For this POC, each add, quantity change,
   or non-final removal creates a replacement guest checkout containing the complete
-  desired cart and then cancels the superseded session. A canceled or partially accepted
+  desired cart and then cancels the superseded session through V1 because V2 omits the
+  operation. A canceled or partially accepted
   create response is rejected, so a Search Agent item that QAT checkout considers
   ineligible cannot appear as a phantom cart line.
 - **Deferred:** real storefront embedding, signed-in customer identity, checkout/payment,

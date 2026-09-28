@@ -35,7 +35,7 @@ Anthropic ShoppingAgent + Messages API runtime (:8004)
         +--> Chewy Search Agent MCP (:8080)
         |       +--> Chewy catalog/search services
         |
-        +--> Agentic Commerce Orchestrator UCP v1 (QAT)
+        +--> Agentic Commerce Orchestrator UCP v2 (QAT)
                 +--> guest account and cart/checkout services
 ```
 
@@ -57,8 +57,8 @@ repository.
   `2025-06-18` streamable-HTTP protocol.
 - `api/backend.py` maps Anthropic's typed `StorefrontBackend` contract to Chewy search,
   product-detail, and UCP guest-cart operations.
-- `api/ucp_client.py` keeps the orchestrator API key server-side and exposes only the
-  create, read, and cancel operations needed by this POC.
+- `api/ucp_client.py` keeps the orchestrator API key server-side, uses V2 create/read,
+  and uses V1 cancel only for lifecycle cleanup because V2 omits cancel.
 - `api/agent_config.py` enables search, cart, and the checkout-summary presentation tool
   while leaving orders, policies, fulfillment, and memory disabled.
 - `api/main.py` mounts the shared demo API and the product-card add-to-cart route.
@@ -80,15 +80,16 @@ The adapter therefore validates the UCP status and exact accepted quantities bef
 exposing a cart update. Rejected items fail visibly rather than appearing as phantom
 cart lines.
 
-### QAT UCP update does not currently mutate line items
+### QAT UCP V2 update does not currently mutate line items
 
-`PUT /api/ucp/v1/checkout-sessions/{id}` returned HTTP 200 in live testing, but quantity
+`PUT /api/ucp/v2/checkout-sessions/{id}` returned HTTP 200 in live testing, but quantity
 and line-item changes were not applied. For the POC, every successful add, quantity
 change, or non-final removal:
 
 1. Creates a new guest checkout session containing the complete desired cart.
 2. Switches the server-held session reference only after that create succeeds.
-3. Cancels the superseded checkout session.
+3. Cancels the superseded checkout session through V1, because UCP V2 has no cancel
+   operation and QAT permits V1 lifecycle cleanup of a V2-created session.
 
 This is a POC workaround, not the recommended production cart design. A production
 storefront should use its authoritative cart API or a UCP operation that demonstrably
@@ -179,6 +180,8 @@ data and may change.
 - Live Search Agent search and product-detail calls succeeded.
 - Live multi-item UCP cart test preserved two distinct products and quantity changes
   across a fresh cart read.
+- The live V2 profile advertised protocol `2026-04-08`; V2 create/read and V1 cleanup
+  of a V2-created session succeeded in QAT.
 - Live checkout-summary event contained quantity 2, subtotal `$32.58`, and no handoff.
 - The successful final verification cart was removed after the assertion.
 
@@ -196,7 +199,8 @@ data and may change.
 - Replace the ACME demo shell with the existing Chewy storefront or app surface.
 - Use authenticated customer/session context rather than a POC guest identity.
 - Reconcile Search Agent results with cart eligibility before presentation or add.
-- Replace checkout-session recreation with an authoritative production cart mutation.
+- Replace checkout-session recreation and cross-version cleanup with an authoritative
+  production cart mutation.
 - Persist cart/session ownership and cancel abandoned remote sessions explicitly.
 - Add a trusted address form and calculated fulfillment/tax response if the POC scope
   expands.

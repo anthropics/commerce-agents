@@ -39,7 +39,7 @@ locations as the other commerce-agents examples.
 
 The demo uses `INTERNAL_TEST_AUTOMATION_API_KEY` from the orchestrator's local QAT
 environment file. `UCP_API_KEY` overrides it, and `UCP_ORCHESTRATOR_URL` overrides the
-default QAT UCP v1 base URL. Both values stay in the API process and are never sent to
+default QAT UCP v2 base URL. Both values stay in the API process and are never sent to
 the browser or model.
 
 Open the storefront URL printed by `run_demo.py` and try:
@@ -53,10 +53,12 @@ cart is a UCP checkout session, but this POC never completes it or sends payment
 Asking to check out renders a review-only summary from that cart. Chewy shipping,
 delivery, tax, and return-policy claims are not fabricated; the card marks unknown
 amounts as calculated later and offers no payment or completion action.
-Because the deployed QAT UCP update operation currently recalculates without changing
-line items, each successful mutation replaces the guest checkout with the complete
-desired cart and cancels the prior session. Products rejected by QAT checkout are shown
-as unavailable instead of being added locally.
+The POC uses UCP `2026-04-08` V2 for checkout create and read. Because the deployed QAT
+V2 update operation currently recalculates without changing line items, each successful
+mutation replaces the guest checkout with the complete desired cart. V2 has no cancel
+operation, so the POC uses the V1 cancel route only to clean up the superseded or emptied
+session. Products rejected by QAT checkout are shown as unavailable instead of being
+added locally.
 The reused retail storefront still has ACME demo chrome. Replacing that shell with the
 real storefront is a later slice.
 

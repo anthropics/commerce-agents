@@ -21,7 +21,7 @@ async def test_create_checkout_sends_api_key_and_guest_line_items() -> None:
         )
 
     client = UcpOrchestratorClient(
-        "https://ucp.example/api/ucp/v1",
+        "https://ucp.example/api/ucp/v2",
         "secret-key",
         transport=httpx.MockTransport(handler),
     )
@@ -29,9 +29,32 @@ async def test_create_checkout_sends_api_key_and_guest_line_items() -> None:
 
     assert payload["id"] == "checkout-1"
     assert seen == {
-        "path": "/api/ucp/v1/checkout-sessions",
+        "path": "/api/ucp/v2/checkout-sessions",
         "api_key": "secret-key",
-        "body": '{"line_items":[{"item":{"id":"767758"},"quantity":2}],"currency":"USD"}',
+        "body": '{"line_items":[{"id":"1","item":{"id":"767758"},"quantity":2}],"currency":"USD"}',
+    }
+
+
+@pytest.mark.asyncio
+async def test_v2_checkout_uses_v1_cancel_for_lifecycle_cleanup() -> None:
+    seen: dict[str, object] = {}
+
+    async def handler(request: httpx.Request) -> httpx.Response:
+        seen["method"] = request.method
+        seen["path"] = request.url.path
+        return httpx.Response(200, json={"id": "checkout-1", "status": "canceled"})
+
+    client = UcpOrchestratorClient(
+        "https://ucp.example/api/ucp/v2",
+        "secret-key",
+        transport=httpx.MockTransport(handler),
+    )
+    payload = await client.cancel_checkout("checkout-1")
+
+    assert payload["status"] == "canceled"
+    assert seen == {
+        "method": "POST",
+        "path": "/api/ucp/v1/checkout-sessions/checkout-1/cancel",
     }
 
 
@@ -42,7 +65,7 @@ async def test_failure_does_not_expose_api_key_or_response_body() -> None:
         return httpx.Response(503, text="sensitive upstream details")
 
     client = UcpOrchestratorClient(
-        "https://ucp.example/api/ucp/v1",
+        "https://ucp.example/api/ucp/v2",
         "secret-key",
         transport=httpx.MockTransport(handler),
     )

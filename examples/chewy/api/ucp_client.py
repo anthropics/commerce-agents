@@ -5,6 +5,7 @@
 
 from __future__ import annotations
 
+import re
 from typing import Any
 
 import httpx
@@ -21,9 +22,15 @@ class UcpOrchestratorClient:
         api_key: str,
         timeout_s: float = 30.0,
         *,
+        cancel_base_url: str | None = None,
         transport: httpx.AsyncBaseTransport | None = None,
     ) -> None:
         self.base_url = base_url.rstrip("/")
+        self.cancel_base_url = (
+            cancel_base_url.rstrip("/")
+            if cancel_base_url
+            else re.sub(r"/v2$", "/v1", self.base_url)
+        )
         self.api_key = api_key
         self.timeout_s = timeout_s
         self.transport = transport
@@ -39,10 +46,23 @@ class UcpOrchestratorClient:
         return await self._request("GET", f"/checkout-sessions/{checkout_id}")
 
     async def cancel_checkout(self, checkout_id: str) -> dict[str, Any]:
-        return await self._request("POST", f"/checkout-sessions/{checkout_id}/cancel", json={})
+        # UCP 2026-04-08 deliberately omits cancel. QAT persists V1 and V2 checkout
+        # sessions in the same lifecycle store, so use the advertised V1 operation
+        # only for cleanup of superseded or emptied POC sessions.
+        return await self._request(
+            "POST",
+            f"/checkout-sessions/{checkout_id}/cancel",
+            base_url=self.cancel_base_url,
+            json={},
+        )
 
     async def _request(
-        self, method: str, path: str, *, json: dict[str, Any] | None = None
+        self,
+        method: str,
+        path: str,
+        *,
+        base_url: str | None = None,
+        json: dict[str, Any] | None = None,
     ) -> dict[str, Any]:
         if not self.api_key:
             raise UcpOrchestratorError("UCP_API_KEY is not configured")
@@ -52,7 +72,7 @@ class UcpOrchestratorClient:
             ) as client:
                 response = await client.request(
                     method,
-                    f"{self.base_url}{path}",
+                    f"{base_url or self.base_url}{path}",
                     headers={"X-API-KEY": self.api_key},
                     json=json,
                 )
@@ -70,6 +90,6 @@ class UcpOrchestratorClient:
     @staticmethod
     def _create_lines(quantities: dict[str, int]) -> list[dict[str, Any]]:
         return [
-            {"item": {"id": product_id}, "quantity": quantity}
-            for product_id, quantity in quantities.items()
+            {"id": str(index), "item": {"id": product_id}, "quantity": quantity}
+            for index, (product_id, quantity) in enumerate(quantities.items(), 1)
         ]
