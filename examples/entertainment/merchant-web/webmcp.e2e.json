@@ -1,0 +1,1 @@
+{"tools":[{"name":"get_business_overview","risk":"read-only","expectedAnnotations":{"readOnly":true,"untrustedContent":true}},{"name":"get_listing","risk":"read-only","expectedAnnotations":{"readOnly":true,"untrustedContent":true}},{"name":"get_event_pacing","risk":"read-only","expectedAnnotations":{"readOnly":true,"untrustedContent":true}}]}

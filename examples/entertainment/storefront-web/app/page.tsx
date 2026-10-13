@@ -4,7 +4,7 @@
 "use client";
 
 import { useCallback, useState } from "react";
-import { type AgentEvent, type Profile, type Session, StoreShell, type StoreView, useAgentTurn, useSession } from "web-shared";
+import { type AgentEvent, type Profile, type Session, StoreShell, type StoreView, useAgentTurn, useSession, useWebMcpTools } from "web-shared";
 import Chat from "@/components/Chat";
 import { PRESENTATION_COMPONENTS } from "@/components/generative/Bones";
 import { CountdownArc } from "@/components/generative/shared";
@@ -12,7 +12,7 @@ import NightPanel from "@/components/NightPanel";
 import OfferBanner from "@/components/OfferBanner";
 import HomeView from "@/components/views/HomeView";
 import TicketsView from "@/components/views/TicketsView";
-import { api, UNREACHABLE } from "@/lib/api";
+import { api, UNREACHABLE, webMcpTools } from "@/lib/api";
 import { countdownTone, formatCountdown } from "@/lib/format";
 import { LiveProvider, useCountdown, useLive } from "@/lib/live";
 import type { CartPayload } from "@/lib/types";
@@ -78,6 +78,7 @@ export default function StorefrontPage() {
 /** The live holds, offers, and wallet need the session before anything below reads them. */
 function Storefront({ profile, onSwitchProfile }: Pick<StoreProps, "profile" | "onSwitchProfile">) {
   const session = useSession(api, { profile: profile.id });
+  useWebMcpTools(Boolean(session.sessionId), webMcpTools);
   const [cart, setCart] = useState<CartPayload | null>(null);
   return (
     <LiveProvider ready={session.sessionId !== null} onCartUpdate={setCart}>
