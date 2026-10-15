@@ -17,6 +17,9 @@ htmlcov/
 .env.*
 !.env.example
 
+# Client catalog drops. Confidential; never commit a feed archive or an extracted dump.
+feed/
+
 # Node / Next.js (vertical example frontends)
 node_modules/
 .next/
