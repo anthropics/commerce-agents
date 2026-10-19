@@ -38,7 +38,7 @@ idna==3.18
 jiter==0.16.0
 jsonschema==4.26.0
 jsonschema-specifications==2025.9.1
-mcp==1.29.0
+mcp==1.30.0
 pycparser==3.0
 pydantic==2.13.4
 pydantic-core==2.46.4
