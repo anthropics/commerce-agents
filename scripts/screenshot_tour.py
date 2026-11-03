@@ -3,8 +3,8 @@
 
 """Drive a running example through its hero turns in a headless browser and save screenshots.
 
-Requires the vertical's API and app to be running (scripts/run_demo.py) and Playwright with
-Chromium (``pip install playwright && playwright install chromium``):
+Requires the vertical's API and app to be running (scripts/run_demo.py), an updated
+Google Chrome Stable installation, and ``pip install playwright==1.64.1`` in a virtualenv:
 
     python scripts/screenshot_tour.py --vertical travel [--base-url URL] [--out DIR]
     python scripts/screenshot_tour.py --vertical travel --merchant
@@ -317,14 +317,8 @@ def capture_activity_panel(page, output_dir: Path, name: str, wait_for_memory: b
 
 
 def launch_browser(playwright):
-    """The bundled Chromium, or an installed Chrome/Edge when it will not start."""
-    last_error: Exception = RuntimeError("no Chromium-based browser could be launched")
-    for kwargs in ({}, {"channel": "chrome"}, {"channel": "msedge"}):
-        try:
-            return playwright.chromium.launch(**kwargs)
-        except Exception as error:  # try the next channel
-            last_error = error
-    raise last_error
+    """Use updated Chrome Stable with its sandbox and a temporary browser profile."""
+    return playwright.chromium.launch(channel="chrome", chromium_sandbox=True)
 
 
 def run_storefront_tour(page, config: dict, output_dir: Path) -> None:
