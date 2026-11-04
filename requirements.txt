@@ -22,7 +22,7 @@ annotated-types==0.8.0
 anthropic==0.122.0
 anyio==4.14.2
 attrs==26.1.0
-certifi==2026.7.22
+certifi==2026.10.18
 cffi==2.1.1
 claude-agent-sdk==0.2.139
 click==8.4.2
