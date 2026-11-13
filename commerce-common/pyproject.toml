@@ -20,13 +20,13 @@ dependencies = [
 
 [project.optional-dependencies]
 # The optional modules: commerce_common.agent_sdk and commerce_common.mcp_server.
-sdk = ["claude-agent-sdk>=0.2.139", "mcp>=1.2"]
-mcp = ["mcp>=1.2"]
+sdk = ["claude-agent-sdk>=0.2.139", "mcp>=1.2,<2"]
+mcp = ["mcp>=1.2,<2"]
 # This repo's own verification loop and its runnable examples. scripts/install.sh and CI
 # install [examples] through requirements.txt and the test tools through requirements-dev.txt;
 # [dev] is the unpinned equivalent for a standalone install of this package.
 # ruff is bounded to one formatter style so a new release cannot fail `ruff format --check`.
-dev = ["pytest>=8.0", "pytest-asyncio>=0.23", "ruff>=0.15,<0.17", "httpx>=0.27", "mcp>=1.2"]
+dev = ["pytest>=8.0", "pytest-asyncio>=0.23", "ruff>=0.15,<0.17", "httpx>=0.27", "mcp>=1.2,<2"]
 examples = [
   # 0.132 made JSON bodies require a JSON content type, which keeps a cross-site form
   # POST out of the demo APIs.
